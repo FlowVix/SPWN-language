@@ -1,0 +1,13 @@
+{
+    "rust-analyzer.rustfmt.overrideCommand": [
+        "rustup",
+        "run",
+        "nightly",
+        "--",
+        "rustfmt",
+        "--edition",
+        "2021",
+        "--"
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
+}
