@@ -1,6 +1,6 @@
 use super::context::Context;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Multi<T> {
     vec: Vec<(Context, T)>,
 }
@@ -22,19 +22,32 @@ impl<T> FromIterator<(Context, T)> for Multi<T> {
     }
 }
 
+#[allow(clippy::map_identity)]
 impl<T> Multi<T> {
+    pub fn new() -> Self {
+        Self { vec: vec![] }
+    }
+
     pub fn new_single(ctx: Context, v: T) -> Self {
         Self {
             vec: vec![(ctx, v)],
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &(Context, T)> {
-        self.vec.iter()
+    pub fn push(&mut self, ctx: Context, v: T) {
+        self.vec.push((ctx, v))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut (Context, T)> {
-        self.vec.iter_mut()
+    pub fn iter(&self) -> impl Iterator<Item = (&Context, &T)> {
+        self.vec.iter().map(|(v, t)| (v, t))
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&mut Context, &mut T)> {
+        self.vec.iter_mut().map(|(v, t)| (v, t))
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item = (Context, T)> {
+        self.vec.into_iter()
     }
 
     pub fn map<F, R>(self, mut f: F) -> Multi<R>
@@ -56,7 +69,6 @@ impl<T> Multi<Multi<T>> {
     pub fn flatten(self) -> Multi<T> {
         Multi {
             vec: self
-                .vec
                 .into_iter()
                 .flat_map(|(_, v)| v.vec.into_iter())
                 .collect(),

@@ -1,10 +1,4 @@
 
 
-// not strict: `a` is @int | @string
-let a = 5
-a = "fgfgfgf"
-
-// strict:
-let a = 5
-a = "dgfgfgf" // eror
-
+a = 5;
+a(5, a);

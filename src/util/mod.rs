@@ -1,12 +1,12 @@
-pub mod deprecated;
+use std::borrow::Cow;
+
+use regex::Regex;
+
 pub mod slabmap;
 pub mod unique_register;
 
-pub type Str32 = widestring::Utf32Str;
-pub type String32 = widestring::Utf32String;
-
-// pub type ImmutCloneStr = Rc<str>;
-// pub type ImmutStr = Box<str>;
+pub type ImmutCloneStr = std::rc::Rc<str>;
+pub type ImmutStr = Box<str>;
 // pub type ImmutCloneStr32 = Rc<Str32>;
 // pub type ImmutStr32 = Box<Str32>;
 pub type ImmutCloneVec<T> = std::rc::Rc<[T]>;
@@ -37,4 +37,12 @@ pub fn hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
     let (r, g, b) = (r + m, g + m, b + m);
 
     ((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8)
+}
+
+lazy_static::lazy_static! {
+    static ref ANSI_REGEX: Regex = Regex::new(r#"(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]"#).unwrap();
+}
+
+pub fn clear_ansi(s: &str) -> Cow<'_, str> {
+    ANSI_REGEX.replace_all(s, "")
 }

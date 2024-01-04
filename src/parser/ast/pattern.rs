@@ -4,8 +4,13 @@ use lasso::Spur;
 use super::expr::ExprNode;
 use crate::source::CodeSpan;
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
+pub struct PatternNode {
+    pub typ: Box<PatternType>,
+    pub span: CodeSpan,
+}
+
+#[derive(Debug)]
 pub enum PatternType {
     /// _
     Any,
@@ -20,74 +25,91 @@ pub enum PatternType {
     /// == <expr>
     Eq(ExprNode),
     /// != <expr>
-    Neq(ExprNode),
+    NEq(ExprNode),
     /// < <expr>
     Lt(ExprNode),
     /// <= <expr>
-    Lte(ExprNode),
+    LtE(ExprNode),
     /// > <expr>
     Gt(ExprNode),
     /// >= <expr>
-    Gte(ExprNode),
+    GtE(ExprNode),
 
+    /// in <expr>
     In(ExprNode),
 
     /// <pattern>[<pattern>]
-    ArrayPattern(PatternNode, PatternNode),
-    /// <pattern>{:}
+    ArrayPattern(PatternNode, Option<PatternNode>),
+    /// <pattern>{}
     DictPattern(PatternNode),
 
-    /// [ <pattern> ]
+    /// [ <pattern> ... ]
     ArrayDestructure(Vec<PatternNode>),
 
-    /// { key: <pattern> ... }
-    DictDestructure(AHashMap<Spur, (PatternNode, CodeSpan)>),
+    /// { key(: <pattern>)? ... }
+    DictDestructure(AHashMap<Spur, (Option<PatternNode>, CodeSpan)>),
     /// <pattern>? or ?
     MaybeDestructure(Option<PatternNode>),
     /// @typ::{ <key>(: <pattern>)? ... }
-    InstanceDestructure(Spur, AHashMap<Spur, (PatternNode, CodeSpan)>),
+    InstanceDestructure(Spur, AHashMap<Spur, (Option<PatternNode>, CodeSpan)>),
 
     /// ()
     Empty,
 
     /// index, member, associated member
-    Path {
-        var: Spur,
-        path: Vec<AssignPath>,
-    },
+    Path { var: Spur, path: Vec<AssignPath> },
     /// mut var
-    Mut {
-        name: Spur,
-    },
+    Mut { name: Spur },
     /// &var
-    Ref {
-        name: Spur,
-    },
+    Ref { name: Spur },
 
     /// <pattern> if <expr>
-    IfGuard {
-        pat: PatternNode,
-        cond: ExprNode,
-    },
-
-    /// (<pattern>...) -> <pattern>
-    MacroPattern {
-        args: Vec<PatternNode>,
-        ret: PatternNode,
-    },
+    IfGuard { pat: PatternNode, cond: ExprNode },
+    // /// (<pattern>...) -> <pattern>
+    // MacroPattern {
+    //     args: Vec<PatternNode>,
+    //     ret: PatternNode,
+    // },
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
-pub struct PatternNode {
-    pub typ: Box<PatternType>,
-    pub span: CodeSpan,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum AssignPath {
     Index(ExprNode),
     Member(Spur),
     Associated(Spur),
+}
+
+impl PatternType {
+    pub fn get_name(&self) -> Option<Spur> {
+        match self {
+            PatternType::Mut { name } => Some(*name),
+            PatternType::Ref { name } => Some(*name),
+            PatternType::Path { var, path, .. } if path.is_empty() => Some(*var),
+            PatternType::Both(a, ..) => a.typ.get_name(),
+            _ => None,
+        }
+    }
+
+    pub fn needs_mut(&self) -> bool {
+        match self {
+            PatternType::Either(a, b) | PatternType::Both(a, b) => {
+                a.typ.needs_mut() || b.typ.needs_mut()
+            },
+            PatternType::ArrayPattern(elem, ..) | PatternType::DictPattern(elem) => {
+                elem.typ.needs_mut()
+            },
+            PatternType::ArrayDestructure(v) => v.iter().any(|p| p.typ.needs_mut()),
+            PatternType::DictDestructure(map) => map
+                .iter()
+                .any(|(_, (p, _))| p.as_ref().is_some_and(|p| p.typ.needs_mut())),
+            PatternType::InstanceDestructure(_, map) => map
+                .iter()
+                .any(|(_, (p, _))| p.as_ref().is_some_and(|p| p.typ.needs_mut())),
+            PatternType::MaybeDestructure(v) => v.as_ref().is_some_and(|p| p.typ.needs_mut()),
+
+            PatternType::IfGuard { pat, .. } => pat.typ.needs_mut(),
+            PatternType::Ref { .. } => true,
+            _ => false,
+        }
+    }
 }

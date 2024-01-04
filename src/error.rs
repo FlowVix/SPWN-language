@@ -42,7 +42,7 @@ impl Error for ErrorReport {}
 
 impl Display for ErrorReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
+        writeln!(
             f,
             "\n{}: {}",
             self.title.truecolor(255, 72, 72).bold(),
@@ -69,11 +69,17 @@ impl Display for ErrorReport {
         };
 
         for (src, (code, labels)) in src_map {
-            writeln!(f, "[{}]", src.truecolor(123, 184, 255))?;
+            writeln!(
+                f,
+                "{}{}{}\n",
+                "[".dimmed(),
+                src.truecolor(123, 184, 255),
+                "]".dimmed(),
+            )?;
             write!(
                 f,
                 "{}",
-                Report::new_char_spanned(
+                Report::new_byte_spanned(
                     &code,
                     labels.into_iter().map(|(span, msg)| {
                         (
@@ -123,6 +129,7 @@ macro_rules! error_maker {
             )*
         }
     ) => {
+        #[derive(Debug)]
         $(#[$($meta)*])*
         pub enum $name {
             $(

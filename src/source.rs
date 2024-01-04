@@ -3,13 +3,20 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use derive_more::Display;
+use ahash::AHashMap;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Display)]
+use crate::bytecode::Bytecode;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
 #[display(fmt = "{}..{}", start, end)]
 pub struct CodeSpan {
     pub start: usize,
     pub end: usize,
+}
+impl Debug for CodeSpan {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
 }
 
 impl CodeSpan {
@@ -22,7 +29,7 @@ impl CodeSpan {
         }
     }
 
-    pub fn into_area(self, src: Rc<SpwnSource>) -> CodeArea {
+    pub fn into_area(self, src: &'static SpwnSource) -> CodeArea {
         CodeArea { span: self, src }
     }
 }
@@ -60,9 +67,17 @@ impl SpwnSource {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Display)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
 #[display(fmt = "<{} @ {}>", "src.name()", span)]
+// #[debug(fmt = "<{} @ {}>", "src.name()", span)]
 pub struct CodeArea {
     pub span: CodeSpan,
-    pub src: Rc<SpwnSource>,
+    pub src: &'static SpwnSource,
 }
+impl Debug for CodeArea {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+pub type BytecodeMap = AHashMap<&'static SpwnSource, Bytecode>;

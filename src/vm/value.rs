@@ -1,27 +1,65 @@
-use std::collections::BTreeMap;
+use delve::{EnumToStr, EnumVariantNames};
 
-use super::memory::MemKey;
+use super::memory::{StoredValue, ValueKey};
+use crate::bytecode::opcode::FuncID;
 use crate::source::CodeArea;
-use crate::util::String32;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
+macro_rules! value {
+    (
+        $(
+            $var:ident
+            $((
+                $($t1:tt)*
+            ))?
+            $({
+                $($t2:tt)*
+            })?,
+        )*
+    ) => {
+        #[derive(Debug, Clone, PartialEq)]
+        pub enum Value {
+            $(
+                $var $(($($t1)*))? $({$($t2)*})?,
+            )*
+        }
+        impl Value {
+            pub fn get_type(&self) -> ValueType {
+                match self {
+                    $(
+                        Self::$var {..} => ValueType::$var,
+                    )*
+                }
+            }
+        }
+
+        #[derive(Debug, Clone, Copy, PartialEq, EnumVariantNames, EnumToStr)]
+        #[delve(rename_all = "snake_case")]
+        pub enum ValueType {
+            $(
+                $var,
+            )*
+        }
+    };
+}
+
+value! {
     Int(i64),
     Float(f64),
-    String(String32),
     Bool(bool),
 
-    Array(Vec<MemKey>),
-    Dict(BTreeMap<MemKey, MemKey>),
+    Array(Vec<ValueKey>),
 
-    Maybe(Option<Box<Value>>),
+    Macro {
+        func: FuncID,
+    },
+
     Empty,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct StoredValue {
-    pub value: Value,
-    pub def_area: CodeArea,
+impl ValueType {
+    pub fn runtime_display(self) -> String {
+        format!("@{}", <ValueType as Into<&str>>::into(self))
+    }
 }
 
 impl Value {

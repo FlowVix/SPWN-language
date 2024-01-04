@@ -1,119 +1,125 @@
-use std::fmt::Debug;
-use std::rc::Rc;
-
 use colored::Colorize;
 
-use self::context::Context;
+use self::context::{Context, FuncStackItem};
 use self::error::RuntimeError;
-use self::memory::{MemKey, Memory};
-use self::value::{StoredValue, Value};
-use crate::bytecode::opcodes::Opcode;
+use self::memory::ValueKey;
+use self::multi::Multi;
+use self::value::Value;
+use crate::bytecode::constant::Constant;
+use crate::bytecode::opcode::Opcode;
 use crate::bytecode::{Bytecode, Function};
 use crate::source::{CodeArea, CodeSpan, SpwnSource};
 use crate::util::ImmutVec;
-use crate::vm::context::FullContext;
+use crate::vm::context::{DeepClone, FullContext};
 
 pub mod context;
 pub mod error;
 pub mod memory;
 pub mod multi;
 pub mod value;
+pub mod value_ops;
 
 pub type RuntimeResult<T> = Result<T, RuntimeError>;
 
+// #[derive(Clone, Copy)]
+// pub struct RunInfo {
+//     pub program: &'static ImmutVec<Bytecode>,
+//     pub bytecode_idx: usize,
+//     pub func_idx: usize,
+// }
+
 #[derive(Clone, Copy)]
 pub struct RunInfo {
-    pub program: &'static ImmutVec<Bytecode>,
-    pub bytecode_idx: usize,
-    pub func_idx: usize,
+    pub bytecode: &'static Bytecode,
+    pub function: &'static Function,
 }
 
-impl Debug for RunInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<code: {}, func: {}>", self.bytecode_idx, self.func_idx)
-    }
-}
+// impl std::fmt::Debug for RunInfo {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "<code: {}, func: {}>", self.bytecode_idx, self.func_idx)
+//     }
+// }
 
 impl RunInfo {
     #[inline]
-    pub fn bytecode(&self) -> &Bytecode {
-        &self.program[self.bytecode_idx]
+    pub fn opcodes(&self) -> &[(Opcode, CodeSpan)] {
+        &self.function.opcodes
     }
 
     #[inline]
-    pub fn func(&self) -> &Function {
-        &self.bytecode().funcs[self.func_idx]
+    pub fn src(&self) -> &'static SpwnSource {
+        self.bytecode.src
     }
 
     #[inline]
-    pub fn opcodes(&self) -> &[Opcode] {
-        &self.func().opcodes
-    }
-
-    #[inline]
-    pub fn src(&self) -> &Rc<SpwnSource> {
-        &self.bytecode().src
-    }
-
-    #[inline]
-    pub fn consts(&self) -> &[Value] {
-        &self.bytecode().consts
+    pub fn consts(&self) -> &[Constant] {
+        &self.bytecode.consts
     }
 
     #[inline]
     pub fn make_area(&self, span: CodeSpan) -> CodeArea {
         CodeArea {
             span,
-            src: self.src().clone(),
+            src: self.src(),
         }
     }
 }
 
-pub struct Vm {
-    pub memory: Memory,
-}
+pub struct Vm {}
 
 impl Vm {
-    #[inline]
-    pub fn insert(&mut self, v: StoredValue) -> MemKey {
-        self.memory.insert(v)
-    }
+    // pub fn const_to_value(&self, context: &mut Context, c: &Constant) -> Value {
+    //     match c {
+    //         Constant::Int(v) => Value::Int(*v),
+    //         Constant::Float(v) => Value::Float(*v),
+    //         // Constant::Array(v) => Value::Array(v),
+    //     }
+    // }
 
-    #[inline]
-    pub fn get(&self, k: MemKey) -> &StoredValue {
-        &self.memory[k]
-    }
-
-    #[inline]
-    pub fn get_mut(&mut self, k: MemKey) -> &mut StoredValue {
-        &mut self.memory[k]
-    }
-
-    /// <img src="https://cdna.artstation.com/p/assets/images/images/056/833/046/original/lara-hughes-blahaj-spin-compressed.gif?1670214805" width=60 height=60>
-    /// <img src="https://cdna.artstation.com/p/assets/images/images/056/833/046/original/lara-hughes-blahaj-spin-compressed.gif?1670214805" width=60 height=60>
-    /// <img src="https://cdna.artstation.com/p/assets/images/images/056/833/046/original/lara-hughes-blahaj-spin-compressed.gif?1670214805" width=60 height=60>
-    pub fn run_func<F>(&mut self, mut context: Context, info: RunInfo) -> Vec<Context> {
+    pub fn run_func(
+        &mut self,
+        mut context: Context,
+        info: RunInfo,
+    ) -> Multi<RuntimeResult<ValueKey>> {
         let original_ip = context.ip;
         context.ip = 0;
 
+        context.func_stack.push(FuncStackItem {
+            stack: vec![],
+            vars: vec![None; info.function.var_count as usize],
+        });
+
         let mut full_ctx = FullContext::new(context, info);
 
-        let mut out_contexts = vec![];
+        let mut out = Multi::new();
+        let mut out_context = |mut ctx: Context, v| {
+            ctx.func_stack.pop();
+            ctx.ip = original_ip;
+
+            out.push(ctx, v);
+        };
 
         while full_ctx.valid() {
             let ip = full_ctx.current().ip;
 
-            if ip > info.opcodes().len() {
+            if ip >= info.opcodes().len() {
                 if !full_ctx.have_returned {
                     let mut top = full_ctx.yeet_current().unwrap();
-                    top.func_stack.pop();
 
-                    out_contexts.push(top);
+                    let k = top
+                        .memory
+                        .insert(Value::Empty.into_stored(info.make_area(CodeSpan::ZEROSPAN)));
+
+                    out_context(top, Ok(k))
                 } else {
                     full_ctx.yeet_current();
                 }
                 continue;
             }
+            // {
+            //     let ctx = full_ctx.current();
+            //     println!("id {}, pos {}", ctx.id, ctx.ip);
+            // }
 
             #[derive(Debug, Clone, Copy, PartialEq, Eq)]
             enum LoopFlow {
@@ -121,32 +127,183 @@ impl Vm {
                 Continue,
             }
 
-            let run_opcode = |opcode: Opcode, opcode_span: CodeSpan| -> RuntimeResult<LoopFlow> {
-                // match opcode {
-                //     Opcode::PushConst(id) => full_ctx.current_mut().stack.push(
-                //         info.consts()[*id as usize]
-                //             .clone()
-                //             .into_stored(info.make_area(opcode_span), false),
-                //     ),
-                //     Opcode::PopTop => {
-                //         full_ctx.current_mut().stack.pop();
-                //     },
-                //     Opcode::Plus => todo!(),
-                //     Opcode::Minus => todo!(),
-                //     Opcode::Mult => todo!(),
-                //     Opcode::Div => todo!(),
-                //     Opcode::Modulo => todo!(),
-                //     Opcode::Pow => todo!(),
-                //     Opcode::Dbg => {
-                //         let v = full_ctx.current_mut().pop();
-                //         println!("{}", format!("{:?}", v.value).bright_green());
-                //     },
-                // }
+            let mut run_opcode =
+                |opcode: Opcode, opcode_span: CodeSpan| -> RuntimeResult<LoopFlow> {
+                    let run_info = full_ctx.run_info;
+                    let opcode_area = run_info.make_area(opcode_span);
 
-                todo!()
-            };
+                    macro_rules! bin_op {
+                        ($op:ident, $a:ident, $b:ident, $to:ident) => {{
+                            let mut ctx = full_ctx.current_mut();
+                            let b = ctx.stack_pop();
+                            let a = ctx.stack_pop();
+                            let v = value_ops::$op(&mut ctx.memory, a, b, opcode_area, run_info)?
+                                .into_stored(opcode_area);
+
+                            let k = ctx.memory.insert(v);
+
+                            ctx.stack_push(k);
+                        }};
+                    }
+
+                    match opcode {
+                        Opcode::PopTop => {
+                            full_ctx.current_mut().stack_pop();
+                        },
+                        Opcode::LoadConst(c) => {
+                            let v = match &run_info.bytecode.consts[*c as usize] {
+                                Constant::Int(v) => Value::Int(*v),
+                                Constant::Float(v) => Value::Float(*v),
+                                Constant::Bool(b) => Value::Bool(*b),
+                                Constant::Empty => Value::Empty,
+                            }
+                            .into_stored(opcode_area);
+
+                            let mut ctx = full_ctx.current_mut();
+                            let k = ctx.memory.insert(v);
+                            ctx.stack_push(k);
+                        },
+                        Opcode::Plus => bin_op!(plus, a, b, to),
+                        Opcode::Minus => bin_op!(minus, a, b, to),
+                        Opcode::Mult => bin_op!(mult, a, b, to),
+                        Opcode::Div => bin_op!(div, a, b, to),
+                        Opcode::Jump(to) => {
+                            full_ctx.current_mut().ip = *to as usize;
+                            return Ok(LoopFlow::Continue);
+                        },
+                        Opcode::JumpIfFalse(to) => {
+                            let mut ctx = full_ctx.current_mut();
+                            let k = ctx.stack_pop();
+                            if !value_ops::to_bool(&ctx.memory, k, opcode_area)? {
+                                ctx.ip = *to as usize;
+                                return Ok(LoopFlow::Continue);
+                            }
+                        },
+                        Opcode::JumpIfTrue(to) => {
+                            let mut ctx = full_ctx.current_mut();
+                            let k = ctx.stack_pop();
+                            if value_ops::to_bool(&ctx.memory, k, opcode_area)? {
+                                ctx.ip = *to as usize;
+                                return Ok(LoopFlow::Continue);
+                            }
+                        },
+                        Opcode::Mod => todo!(),
+                        Opcode::Pow => todo!(),
+                        Opcode::Eq => todo!(),
+                        Opcode::NEq => todo!(),
+                        Opcode::Gt => bin_op!(gt, a, b, to),
+                        Opcode::GtE => bin_op!(gte, a, b, to),
+                        Opcode::Lt => bin_op!(lt, a, b, to),
+                        Opcode::LtE => bin_op!(lte, a, b, to),
+                        Opcode::UnaryMinus => todo!(),
+                        Opcode::UnaryNot => todo!(),
+                        Opcode::MakeArray { len } => {
+                            let mut v = vec![0.into(); len as usize];
+                            let mut ctx = full_ctx.current_mut();
+
+                            for i in (0..len as usize).rev() {
+                                let top = ctx.stack_pop();
+                                v[i] = ctx.deep_clone_key(top);
+                            }
+                            let k = ctx.memory.insert(Value::Array(v).into_stored(opcode_area));
+                            ctx.stack_push(k);
+                        },
+                        Opcode::Dbg => {
+                            let ctx = full_ctx.current();
+                            println!(
+                                "{} {}",
+                                ctx.value_display(&ctx.memory[*ctx.stack().last().unwrap()].value)
+                                    .bright_green(),
+                                format!(":: CID {}, L {}", ctx.id, ctx.stack().len()).dimmed(),
+                            )
+                        },
+                        Opcode::EnterArrowStatement(to) => {
+                            let mut new = {
+                                let mut current = full_ctx.current_mut();
+                                current.ip += 1;
+                                current.clone()
+                            };
+                            new.ip = *to as usize;
+                            full_ctx.contexts.push(new);
+                            return Ok(LoopFlow::Continue);
+                        },
+                        Opcode::YeetContext => {
+                            // println!("gaga");
+                            full_ctx.yeet_current();
+                            return Ok(LoopFlow::Continue);
+                        },
+                        Opcode::SetVar(id) => {
+                            let mut ctx = full_ctx.current_mut();
+                            let top = ctx.stack_pop();
+                            match ctx.vars_mut()[*id as usize] {
+                                Some(k) => {
+                                    let v = ctx.deep_clone(top);
+                                    ctx.memory[k] = v;
+                                },
+                                None => {
+                                    let k = ctx.deep_clone_key(top);
+                                    ctx.vars_mut()[*id as usize] = Some(k);
+                                },
+                            }
+                        },
+                        Opcode::LoadVar(id) => {
+                            let mut ctx = full_ctx.current_mut();
+                            let Some(k) = ctx.vars_mut()[*id as usize] else {
+                                return Err(RuntimeError::VarNotInitialized { area: opcode_area });
+                            };
+                            ctx.stack_push(k)
+                        },
+                        Opcode::ChangeVarKey(id) => {
+                            let mut ctx = full_ctx.current_mut();
+                            let top = ctx.stack_pop();
+                            ctx.vars_mut()[*id as usize] = Some(top);
+                        },
+                        Opcode::MismatchThrowIfFalse => {
+                            let mut ctx = full_ctx.current_mut();
+                            let top = ctx.stack_pop();
+                            // TODO
+                        },
+                        Opcode::Return => {
+                            let mut top = full_ctx.yeet_current().unwrap();
+                            let k = top.stack_pop();
+
+                            out_context(top, Ok(k));
+                            return Ok(LoopFlow::Continue);
+                        },
+                        Opcode::MakeMacro(id) => {
+                            let mut ctx = full_ctx.current_mut();
+                            let k = ctx
+                                .memory
+                                .insert(Value::Macro { func: id }.into_stored(opcode_area));
+                            ctx.stack_push(k);
+                        },
+                        Opcode::Call(_) => todo!(),
+                    }
+
+                    Ok(LoopFlow::Normal)
+                };
+
+            let (opcode, opcode_span) = info.opcodes()[ip];
+
+            match run_opcode(opcode, opcode_span) {
+                Ok(l) => match l {
+                    LoopFlow::Normal => {
+                        full_ctx.current_mut().ip += 1;
+                    },
+                    LoopFlow::Continue => {
+                        continue;
+                    },
+                },
+                Err(err) => {
+                    // temporary
+                    println!("{}", err.into_report());
+                    std::process::exit(1);
+                },
+            }
+
+            // run_opcode
         }
 
-        todo!()
+        out
     }
 }

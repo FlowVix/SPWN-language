@@ -1,9 +1,14 @@
-use super::value::StoredValue;
+use super::value::Value;
+use crate::source::CodeArea;
 use crate::util::slabmap::SlabMap;
 
-#[derive(
-    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::Into, derive_more::From,
-)]
-pub struct MemKey(pub usize);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Into, derive_more::From)]
+pub struct ValueKey(usize);
 
-pub type Memory = SlabMap<MemKey, StoredValue>;
+#[derive(Debug, Clone)]
+pub struct StoredValue {
+    pub value: Value,
+    pub def_area: CodeArea,
+}
+
+pub type Memory = SlabMap<ValueKey, StoredValue>;

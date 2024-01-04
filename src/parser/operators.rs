@@ -9,7 +9,7 @@ macro_rules! operators {
             ;
         )+
     ) => {
-        use crate::lexer::tokens::Token;
+        use crate::lexer::token::Token;
 
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub enum Operator {
@@ -64,10 +64,10 @@ macro_rules! operators {
                 match self {
                     $(
                         $($(
-                            BinOp::$l_tok => Token::$l_tok.to_str(),
+                            BinOp::$l_tok => Token::$l_tok.name(),
                         )+)?
                         $($(
-                            BinOp::$r_tok => Token::$r_tok.to_str(),
+                            BinOp::$r_tok => Token::$r_tok.name(),
                         )+)?
                     )+
                 }
@@ -78,7 +78,7 @@ macro_rules! operators {
                 match self {
                     $(
                         $($(
-                            UnaryOp::$u_tok => Token::$u_tok.to_str(),
+                            UnaryOp::$u_tok => Token::$u_tok.name(),
                         )+)?
                     )+
                 }
@@ -88,7 +88,7 @@ macro_rules! operators {
             pub fn to_str(self) -> &'static str {
                 match self {
                     $(
-                        AssignOp::$a_tok => Token::$a_tok.to_str(),
+                        AssignOp::$a_tok => Token::$a_tok.name(),
                     )+
                 }
             }
@@ -178,7 +178,7 @@ operators! {
     // Left => [BinOr, Or];
     // Unary => [Eq, Neq, Gt, Gte, Lt, Lte];
     Unary => [ExclMark];
-    Left => [Eq, NotEq, Gt, Gte, Lt, Lte];
+    Left => [Eq, NEq, Gt, GtE, Lt, LtE];
     // Left => [ShiftLeft, ShiftRight];
     Left => [Plus, Minus];
     Unary => [Minus];

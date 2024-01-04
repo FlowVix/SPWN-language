@@ -7,13 +7,15 @@ edition = "2021"
 
 [dependencies]
 ahash = "0.8.6"
-colored = "2.0.4"
-itertools = "0.12.0"
-lyneate = "0.2.1"
-widestring = { git = "https://github.com/FlowVix/widestring-rs" }
 derive_more = "0.99.17"
-paste = "1.0.14"
-lasso = "0.7.2"
-delve = { version = "0.3.0", features = ["derive"] }
-allow-until = "0.2.0"
+itertools = "0.12.0"
+lazy_static = "1.4.0"
 slab = "0.4.9"
+binary-heap-plus = "0.5.0"
+colored = "2.1.0"
+lyneate = "0.2.1"
+delve = { version = "0.3.0", features = ["derive"] }
+logos = "0.13.0"
+lasso = "0.7.2"
+regex = "1.10.2"
+# replace_with = "0.1.7"
