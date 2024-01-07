@@ -63,7 +63,7 @@ ids_helper! {
 )]
 #[delve(rename_variants = "screamingsnakecase")]
 pub enum Opcode {
-    #[delve(display = || "pop top")]
+    #[delve(display = "pop top")]
     PopTop,
     #[delve(display = |id| format!("load {id}"))]
     LoadConst(ConstID),

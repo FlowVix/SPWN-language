@@ -8,6 +8,7 @@ use crate::ids_helper;
 use crate::parser::ast::pattern::PatternNode;
 use crate::parser::ast::Ast;
 use crate::source::{BytecodeMap, CodeArea, CodeSpan, SpwnSource};
+use crate::util::interner::Interner;
 use crate::util::slabmap::SlabMap;
 use crate::util::ImmutStr;
 
@@ -32,6 +33,7 @@ pub struct VarData {
 }
 
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub enum ScopeType<'a> {
     Global,
     Loop(BlockID),
@@ -41,16 +43,18 @@ pub enum ScopeType<'a> {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Scope<'a> {
     vars: AHashMap<Spur, VarData>,
     parent: Option<ScopeID>,
     typ: Option<ScopeType<'a>>,
 }
 
+#[non_exhaustive]
 pub struct Compiler<'a> {
-    src: &'static SpwnSource,
+    src: &'a SpwnSource,
 
-    interner: &'a mut Rodeo,
+    interner: Interner,
     bytecode_map: &'a mut BytecodeMap,
 
     scopes: SlabMap<ScopeID, Scope<'a>>,
@@ -67,18 +71,14 @@ pub struct Compiler<'a> {
 }
 
 impl<'a> Compiler<'a> {
-    pub fn make_area(&self, span: CodeSpan) -> CodeArea {
+    pub fn make_area(&'a self, span: CodeSpan) -> CodeArea {
         CodeArea {
             span,
             src: self.src,
         }
     }
 
-    pub fn new(
-        src: &'static SpwnSource,
-        interner: &'a mut Rodeo,
-        bytecode_map: &'a mut BytecodeMap,
-    ) -> Self {
+    pub fn new(src: &'a SpwnSource, interner: Interner, bytecode_map: &'a mut BytecodeMap) -> Self {
         Self {
             src,
             interner,

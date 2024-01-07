@@ -65,6 +65,7 @@ impl RunInfo {
     }
 }
 
+#[non_exhaustive]
 pub struct Vm {}
 
 impl Vm {

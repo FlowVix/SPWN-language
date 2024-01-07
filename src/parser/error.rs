@@ -1,4 +1,5 @@
 use crate::error::error_maker;
+use crate::errors::diagnostic::Diagnostic;
 use crate::lexer::token::Token;
 use crate::source::CodeArea;
 

@@ -49,6 +49,7 @@ impl From<CodeSpan> for Range<usize> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum SpwnSource {
     File(PathBuf),
 }

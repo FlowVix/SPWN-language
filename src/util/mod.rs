@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use regex::Regex;
 
+pub mod interner;
 pub mod slabmap;
 pub mod unique_register;
 

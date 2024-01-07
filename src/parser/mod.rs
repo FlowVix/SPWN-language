@@ -5,6 +5,7 @@ use self::error::SyntaxError;
 use crate::lexer::token::Token;
 use crate::lexer::Lexer;
 use crate::source::{CodeArea, CodeSpan, SpwnSource};
+use crate::util::interner::Interner;
 
 pub mod ast;
 pub mod error;
@@ -16,18 +17,21 @@ pub mod util;
 
 pub type ParseResult<T> = Result<T, SyntaxError>;
 
+#[non_exhaustive]
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     src: &'static SpwnSource,
-    interner: &'a mut Rodeo,
+    interner: Interner,
+    _p: std::marker::PhantomData<&'a ()>, // TODO: Remove lifetime
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>, src: &'static SpwnSource, interner: &'a mut Rodeo) -> Self {
+    pub fn new(lexer: Lexer<'a>, src: &'static SpwnSource, interner: Interner) -> Self {
         Self {
             lexer,
             src,
             interner,
+            _p: std::marker::PhantomData,
         }
     }
 
@@ -38,18 +42,22 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[inline(always)]
     fn intern<T: AsRef<str>>(&mut self, string: T) -> Spur {
         self.interner.get_or_intern(string)
     }
 
+    #[inline(always)]
     pub fn resolve(&self, s: &Spur) -> &str {
         self.interner.resolve(s)
     }
 
+    #[inline(always)]
     pub fn next(&mut self) -> ParseResult<Token> {
         self.lexer.next(self.src)
     }
 
+    #[inline(always)]
     pub fn next_strict(&mut self) -> ParseResult<Token> {
         self.lexer.next_strict(self.src)
     }
@@ -64,6 +72,7 @@ impl<'a> Parser<'a> {
         peek.next_strict(self.src)
     }
 
+    #[inline(always)]
     pub fn span(&self) -> CodeSpan {
         self.lexer.span()
     }
@@ -80,14 +89,17 @@ impl<'a> Parser<'a> {
         Ok(peek.span())
     }
 
+    #[inline(always)]
     pub fn slice(&self) -> &str {
         self.lexer.slice()
     }
 
+    #[inline(always)]
     pub fn slice_interned(&mut self) -> Spur {
         self.interner.get_or_intern(self.lexer.slice())
     }
 
+    #[inline(always)]
     pub fn next_is(&self, tok: Token) -> ParseResult<bool> {
         Ok(self.peek()? == tok)
     }
@@ -124,6 +136,7 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    #[inline(always)]
     pub fn expect_tok(&mut self, expect: Token) -> Result<(), SyntaxError> {
         self.expect_tok_named(expect, expect.name())
     }
