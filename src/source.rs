@@ -70,7 +70,6 @@ impl SpwnSource {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
 #[display(fmt = "<{} @ {}>", "src.name()", span)]
-// #[debug(fmt = "<{} @ {}>", "src.name()", span)]
 pub struct CodeArea {
     pub span: CodeSpan,
     pub src: &'static SpwnSource,

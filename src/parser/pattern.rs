@@ -50,9 +50,14 @@ impl<'a> Parser<'a> {
                 let prev = self.span();
 
                 if self.skip_tok(Token::Slf)? {
-                    return Err(SyntaxError::MutSelf {
-                        area: self.make_area(prev.extended(self.span())),
-                    });
+                    let span = prev.extended(self.span());
+                    self.session
+                        .diag_ctx
+                        .create_error(SyntaxError::MutSelf {
+                            area: self.make_area(span),
+                        })
+                        .span_suggestion(span, "consider replacing the `mut` with `&`", "&self")
+                        .emit();
                 }
 
                 self.expect_tok(Token::Ident)?;
@@ -103,11 +108,14 @@ impl<'a> Parser<'a> {
                     }
                 },
                 t => {
-                    return Err(SyntaxError::UnexpectedToken {
-                        expected: "`self` or identifier".into(),
-                        found: t,
-                        area: self.make_area(self.span()),
-                    })
+                    return Err(self
+                        .session
+                        .diag_ctx
+                        .emit_error(SyntaxError::UnexpectedToken {
+                            expected: "`self` or identifier".into(),
+                            found: t,
+                            area: self.make_area(self.span()),
+                        }));
                 },
             },
 
@@ -137,11 +145,14 @@ impl<'a> Parser<'a> {
             },
 
             t => {
-                return Err(SyntaxError::UnexpectedToken {
-                    expected: "pattern".into(),
-                    found: t,
-                    area: self.make_area(self.span()),
-                })
+                return Err(self
+                    .session
+                    .diag_ctx
+                    .emit_error(SyntaxError::UnexpectedToken {
+                        expected: "pattern".into(),
+                        found: t,
+                        area: self.make_area(self.span()),
+                    }))
             },
         };
         Ok(PatternNode {

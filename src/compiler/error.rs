@@ -1,9 +1,11 @@
 use crate::error::error_maker;
+use crate::errors::diagnostic;
 use crate::source::CodeArea;
 use crate::util::ImmutStr;
 
-error_maker! {
+diagnostic! {
     #[title = "Compiler Error"]
+    #[level = Error]
     CompilerError {
         // #[msg = "Invalid operands"]
         // #[labels = [
@@ -17,7 +19,7 @@ error_maker! {
         //     op: BinOp,
         //     area: CodeArea,
         // },
-        #[msg = "Nonexistent variable"]
+        #[message = "Nonexistent variable"]
         #[labels = [
             area => "Variable `{}` does not exist": var;
         ]]

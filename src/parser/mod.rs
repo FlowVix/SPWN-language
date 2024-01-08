@@ -2,8 +2,10 @@ use lasso::{Rodeo, Spur};
 
 use self::ast::Ast;
 use self::error::SyntaxError;
+use crate::errors::ErrorGuaranteed;
 use crate::lexer::token::Token;
 use crate::lexer::Lexer;
+use crate::session::Session;
 use crate::source::{CodeArea, CodeSpan, SpwnSource};
 use crate::util::interner::Interner;
 
@@ -15,107 +17,151 @@ pub mod pattern;
 pub mod stmt;
 pub mod util;
 
-pub type ParseResult<T> = Result<T, SyntaxError>;
+pub type ParseResult<T> = Result<T, ErrorGuaranteed>;
 
 #[non_exhaustive]
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
-    src: &'static SpwnSource,
-    interner: Interner,
-    _p: std::marker::PhantomData<&'a ()>, // TODO: Remove lifetime
+    session: &'a mut Session,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>, src: &'static SpwnSource, interner: Interner) -> Self {
-        Self {
-            lexer,
-            src,
-            interner,
-            _p: std::marker::PhantomData,
-        }
+    pub fn new(lexer: Lexer<'a>, session: &'a mut Session) -> Self {
+        Self { lexer, session }
     }
 
+    #[inline(always)]
     pub fn make_area(&self, span: CodeSpan) -> CodeArea {
         CodeArea {
             span,
-            src: self.src,
+            src: self.session.input,
         }
+    }
+
+    #[inline(always)]
+    fn src(&self) -> &'static SpwnSource {
+        self.session.input
     }
 
     #[inline(always)]
     fn intern<T: AsRef<str>>(&mut self, string: T) -> Spur {
-        self.interner.get_or_intern(string)
+        self.session.interner.get_or_intern(string)
     }
 
     #[inline(always)]
     pub fn resolve(&self, s: &Spur) -> &str {
-        self.interner.resolve(s)
+        self.session.interner.resolve(s)
     }
 
     #[inline(always)]
-    pub fn next(&mut self) -> ParseResult<Token> {
-        self.lexer.next(self.src)
+    fn lexer_next_emit(&mut self, lexer: &mut Lexer) -> ParseResult<Token> {
+        match lexer.next() {
+            Some(t) => Ok(t),
+            None => Err(self.session.diag_ctx.emit_error(SyntaxError::LexingError {
+                area: CodeArea {
+                    span: self.lexer.span(),
+                    src: self.src(),
+                },
+            })),
+        }
     }
 
     #[inline(always)]
-    pub fn next_strict(&mut self) -> ParseResult<Token> {
-        self.lexer.next_strict(self.src)
+    fn lexer_next_strict_emit(&mut self, lexer: &mut Lexer) -> ParseResult<Token> {
+        match lexer.next_strict() {
+            Some(t) => Ok(t),
+            None => Err(self.session.diag_ctx.emit_error(SyntaxError::LexingError {
+                area: CodeArea {
+                    span: lexer.span(),
+                    src: self.src(),
+                },
+            })),
+        }
     }
 
-    pub fn peek(&self) -> ParseResult<Token> {
+    #[inline(always)]
+    pub(crate) fn next(&mut self) -> ParseResult<Token> {
+        // self.lexer_next_emit(&mut self.lexer) <-- if only u could do this.....
+        if let Some(t) = self.lexer.next() {
+            return Ok(t);
+        }
+
+        Err(self.session.diag_ctx.emit_error(SyntaxError::LexingError {
+            area: CodeArea {
+                span: self.lexer.span(),
+                src: self.src(),
+            },
+        }))
+    }
+
+    #[inline(always)]
+    pub(crate) fn next_strict(&mut self) -> ParseResult<Token> {
+        if let Some(t) = self.lexer.next_strict() {
+            return Ok(t);
+        }
+
+        Err(self.session.diag_ctx.emit_error(SyntaxError::LexingError {
+            area: CodeArea {
+                span: self.lexer.span(),
+                src: self.src(),
+            },
+        }))
+    }
+
+    pub(crate) fn peek(&mut self) -> ParseResult<Token> {
         let mut peek = self.lexer.clone();
-        peek.next(self.src)
+        self.lexer_next_emit(&mut peek)
     }
 
-    pub fn peek_strict(&self) -> ParseResult<Token> {
+    pub(crate) fn peek_strict(&mut self) -> ParseResult<Token> {
         let mut peek = self.lexer.clone();
-        peek.next_strict(self.src)
+        self.lexer_next_strict_emit(&mut peek)
     }
 
     #[inline(always)]
-    pub fn span(&self) -> CodeSpan {
+    pub(crate) fn span(&self) -> CodeSpan {
         self.lexer.span()
     }
 
-    pub fn peek_span(&self) -> ParseResult<CodeSpan> {
+    pub(crate) fn peek_span(&mut self) -> ParseResult<CodeSpan> {
         let mut peek = self.lexer.clone();
-        peek.next(self.src)?;
+        self.lexer_next_emit(&mut peek)?;
         Ok(peek.span())
     }
 
-    pub fn peek_span_strict(&self) -> ParseResult<CodeSpan> {
+    pub(crate) fn peek_span_strict(&mut self) -> ParseResult<CodeSpan> {
         let mut peek = self.lexer.clone();
-        peek.next_strict(self.src)?;
+        self.lexer_next_strict_emit(&mut peek)?;
         Ok(peek.span())
     }
 
     #[inline(always)]
-    pub fn slice(&self) -> &str {
+    pub(crate) fn slice(&self) -> &str {
         self.lexer.slice()
     }
 
     #[inline(always)]
-    pub fn slice_interned(&mut self) -> Spur {
-        self.interner.get_or_intern(self.lexer.slice())
+    pub(crate) fn slice_interned(&mut self) -> Spur {
+        self.session.interner.get_or_intern(self.lexer.slice())
     }
 
     #[inline(always)]
-    pub fn next_is(&self, tok: Token) -> ParseResult<bool> {
+    pub(crate) fn next_is(&mut self, tok: Token) -> ParseResult<bool> {
         Ok(self.peek()? == tok)
     }
 
-    pub fn next_are(&self, toks: &[Token]) -> ParseResult<bool> {
+    pub(crate) fn next_are(&mut self, toks: &[Token]) -> ParseResult<bool> {
         let mut peek = self.lexer.clone();
 
         for tok in toks {
-            if peek.next(self.src)? != *tok {
+            if self.lexer_next_emit(&mut peek)? != *tok {
                 return Ok(false);
             }
         }
         Ok(true)
     }
 
-    pub fn skip_tok(&mut self, skip: Token) -> ParseResult<bool> {
+    pub(crate) fn skip_tok(&mut self, skip: Token) -> ParseResult<bool> {
         if self.next_is(skip)? {
             self.next()?;
             Ok(true)
@@ -124,26 +170,35 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn expect_tok_named(&mut self, expect: Token, name: &str) -> ParseResult<()> {
+    pub(crate) fn expect_tok_named(&mut self, expect: Token, name: &str) -> ParseResult<()> {
         let next = self.next()?;
         if next != expect {
-            return Err(SyntaxError::UnexpectedToken {
-                found: next,
-                expected: name.to_string(),
-                area: self.make_area(self.span()),
-            });
+            let area = self.make_area(self.span());
+            return Err(self
+                .session
+                .diag_ctx
+                .emit_error(SyntaxError::UnexpectedToken {
+                    found: next,
+                    expected: name.to_string(),
+                    area,
+                }));
         }
         Ok(())
     }
 
     #[inline(always)]
-    pub fn expect_tok(&mut self, expect: Token) -> Result<(), SyntaxError> {
+    pub(crate) fn expect_tok(&mut self, expect: Token) -> ParseResult<()> {
         self.expect_tok_named(expect, expect.name())
     }
 
     pub fn parse(&mut self) -> ParseResult<Ast> {
-        Ok(Ast {
-            statements: self.parse_statements()?,
-        })
+        let statements = self.parse_statements()?;
+
+        // end parsing if we have errors that were not propogated from other functions
+        if let Some(errors) = self.session.diag_ctx.abort_if_errors() {
+            return Err(errors);
+        }
+
+        Ok(Ast { statements })
     }
 }

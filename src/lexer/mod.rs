@@ -19,24 +19,19 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn next_strict(&mut self, src: &'static SpwnSource) -> ParseResult<Token> {
+    pub fn next_strict(&mut self) -> Option<Token> {
         match self.inner.next() {
-            Some(Ok(t)) => Ok(t),
-            Some(Err(_)) => Err(SyntaxError::LexingError {
-                area: CodeArea {
-                    span: self.inner.span().into(),
-                    src,
-                },
-            }),
-            None => Ok(Token::Eof),
+            Some(Ok(t)) => Some(t),
+            Some(Err(_)) => None,
+            None => Some(Token::Eof),
         }
     }
 
-    pub fn next(&mut self, src: &'static SpwnSource) -> ParseResult<Token> {
+    pub fn next(&mut self) -> Option<Token> {
         loop {
-            let t = self.next_strict(src)?;
+            let t = self.next_strict()?;
             if t != Token::Newline {
-                return Ok(t);
+                return Some(t);
             }
         }
     }

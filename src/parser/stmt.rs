@@ -241,11 +241,15 @@ impl<'a> Parser<'a> {
                 Token::Semicolon | Token::Newline | Token::Eof
             )
         {
-            return Err(SyntaxError::UnexpectedToken {
-                found: self.next()?,
-                expected: "statement separator (`;` or newline)".to_string(),
-                area: self.make_area(self.span()),
-            });
+            let found = self.next()?;
+            return Err(self
+                .session
+                .diag_ctx
+                .emit_error(SyntaxError::UnexpectedToken {
+                    found,
+                    expected: "statement separator (`;` or newline)".to_string(),
+                    area: self.make_area(self.span()),
+                }));
         }
         self.skip_tok(Token::Semicolon)?;
 

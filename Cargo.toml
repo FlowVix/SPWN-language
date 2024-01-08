@@ -20,8 +20,8 @@ delve = { version = "0.3.0", features = ["derive"] }
 logos = "0.13.0"
 lasso = "0.7.2"
 regex = "1.10.2"
-
+line-span = "0.1.5"
 macro_pub = "0.1.0"
-defile = "0.2.1"
-randsym = "0.1.1"
+# defile = "0.2.1"
+# randsym = "0.1.1"
 # replace_with = "0.1.7"

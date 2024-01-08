@@ -30,10 +30,10 @@ impl Interner {
         self.0.borrow_mut().get_or_intern(val)
     }
 
-    #[inline(always)]
-    pub fn resolve(&self, s: &Spur) -> &str {
-        self.0.borrow().resolve(s)
-    }
+    // #[inline(always)]
+    // pub fn resolve(&self, s: &Spur) -> &str {
+    //     self.0.borrow().resolve(s)
+    // }
 
     #[inline(always)]
     pub fn resolve_immut(&self, s: &Spur) -> ImmutStr {

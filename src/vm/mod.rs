@@ -8,6 +8,8 @@ use self::value::Value;
 use crate::bytecode::constant::Constant;
 use crate::bytecode::opcode::Opcode;
 use crate::bytecode::{Bytecode, Function};
+use crate::errors::ErrorGuaranteed;
+use crate::session::Session;
 use crate::source::{CodeArea, CodeSpan, SpwnSource};
 use crate::util::ImmutVec;
 use crate::vm::context::{DeepClone, FullContext};
@@ -19,7 +21,7 @@ pub mod multi;
 pub mod value;
 pub mod value_ops;
 
-pub type RuntimeResult<T> = Result<T, RuntimeError>;
+pub type RuntimeResult<T> = Result<T, ErrorGuaranteed>;
 
 // #[derive(Clone, Copy)]
 // pub struct RunInfo {
@@ -29,9 +31,9 @@ pub type RuntimeResult<T> = Result<T, RuntimeError>;
 // }
 
 #[derive(Clone, Copy)]
-pub struct RunInfo {
-    pub bytecode: &'static Bytecode,
-    pub function: &'static Function,
+pub struct RunInfo<'a> {
+    pub bytecode: &'a Bytecode,
+    pub function: &'a Function,
 }
 
 // impl std::fmt::Debug for RunInfo {
@@ -40,7 +42,15 @@ pub struct RunInfo {
 //     }
 // }
 
-impl RunInfo {
+impl<'a> RunInfo<'a> {
+    pub fn from_start(session: &'a Session) -> Self {
+        let bytecode = &session.bytecode_map[&session.input];
+        Self {
+            bytecode,
+            function: &bytecode.funcs[0],
+        }
+    }
+
     #[inline]
     pub fn opcodes(&self) -> &[(Opcode, CodeSpan)] {
         &self.function.opcodes
@@ -66,9 +76,15 @@ impl RunInfo {
 }
 
 #[non_exhaustive]
-pub struct Vm {}
+pub struct Vm<'a> {
+    pub session: &'a mut Session,
+}
 
-impl Vm {
+impl<'a> Vm<'a> {
+    pub fn new(session: &'a mut Session) -> Self {
+        Self { session }
+    }
+
     // pub fn const_to_value(&self, context: &mut Context, c: &Constant) -> Value {
     //     match c {
     //         Constant::Int(v) => Value::Int(*v),
@@ -138,8 +154,15 @@ impl Vm {
                             let mut ctx = full_ctx.current_mut();
                             let b = ctx.stack_pop();
                             let a = ctx.stack_pop();
-                            let v = value_ops::$op(&mut ctx.memory, a, b, opcode_area, run_info)?
-                                .into_stored(opcode_area);
+                            let v = value_ops::$op(
+                                &mut self.session.diag_ctx,
+                                &mut ctx.memory,
+                                a,
+                                b,
+                                opcode_area,
+                                run_info,
+                            )?
+                            .into_stored(opcode_area);
 
                             let k = ctx.memory.insert(v);
 
@@ -175,7 +198,12 @@ impl Vm {
                         Opcode::JumpIfFalse(to) => {
                             let mut ctx = full_ctx.current_mut();
                             let k = ctx.stack_pop();
-                            if !value_ops::to_bool(&ctx.memory, k, opcode_area)? {
+                            if !value_ops::to_bool(
+                                &mut self.session.diag_ctx,
+                                &ctx.memory,
+                                k,
+                                opcode_area,
+                            )? {
                                 ctx.ip = *to as usize;
                                 return Ok(LoopFlow::Continue);
                             }
@@ -183,7 +211,12 @@ impl Vm {
                         Opcode::JumpIfTrue(to) => {
                             let mut ctx = full_ctx.current_mut();
                             let k = ctx.stack_pop();
-                            if value_ops::to_bool(&ctx.memory, k, opcode_area)? {
+                            if value_ops::to_bool(
+                                &mut self.session.diag_ctx,
+                                &ctx.memory,
+                                k,
+                                opcode_area,
+                            )? {
                                 ctx.ip = *to as usize;
                                 return Ok(LoopFlow::Continue);
                             }
@@ -250,7 +283,9 @@ impl Vm {
                         Opcode::LoadVar(id) => {
                             let mut ctx = full_ctx.current_mut();
                             let Some(k) = ctx.vars_mut()[*id as usize] else {
-                                return Err(RuntimeError::VarNotInitialized { area: opcode_area });
+                                return Err(self.session.diag_ctx.emit_error(
+                                    RuntimeError::VarNotInitialized { area: opcode_area },
+                                ));
                             };
                             ctx.stack_push(k)
                         },
@@ -295,10 +330,8 @@ impl Vm {
                         continue;
                     },
                 },
-                Err(err) => {
-                    // temporary
-                    println!("{}", err.into_report());
-                    std::process::exit(1);
+                Err(_) => {
+                    // TODO: return multi with ErrorGuaranteed
                 },
             }
 

@@ -3,7 +3,7 @@ use super::{CompileResult, Compiler, ScopeID};
 use crate::parser::ast::expr::{ExprNode, ExprType};
 
 impl<'a> Compiler<'a> {
-    pub fn is_mut_expr(&self, expr: &ExprNode, scope: ScopeID) -> CompileResult<bool> {
+    pub fn is_mut_expr(&mut self, expr: &ExprNode, scope: ScopeID) -> CompileResult<bool> {
         Ok(match &*expr.typ {
             ExprType::Var(v) => self.get_var_or_err(*v, scope, expr.span)?.mutable,
             // ExprType::Index { base, .. } => self.is_mut_expr(base, scope)?,

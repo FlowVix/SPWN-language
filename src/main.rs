@@ -3,6 +3,7 @@
 
 use colored::Colorize;
 use compiler::Compiler;
+use errors::ErrorGuaranteed;
 use lasso::Rodeo;
 use lexer::Lexer;
 use logos::Logos;
@@ -23,52 +24,36 @@ mod source;
 mod util;
 mod vm;
 
-fn main() {
-    let spwn_session = Session::new_standard(SpwnSource::File("test.spwn".into()), vec![]);
+fn run_spwn(spwn_session: &mut Session) -> Result<(), ErrorGuaranteed> {
+    let code = spwn_session.source_code().unwrap();
 
-    let code = spwn_session.input.read().unwrap();
+    let mut parser = Parser::new(Lexer::new(&code), spwn_session);
+    let ast = parser.parse()?;
 
-    let mut parser = Parser::new(
-        Lexer::new(&code),
-        &spwn_session.input,
-        spwn_session.interner.clone(),
-    );
+    let mut compiler = Compiler::new(spwn_session);
+    compiler.compile(&ast)?;
 
-    let ast = match parser.parse() {
-        Ok(v) => v,
-        Err(err) => {
-            println!("{}", err.into_report());
-            std::process::exit(1);
-        },
-    };
-
-    //let bytecode_map = Box::leak(Box::new(BytecodeMap::new()));
-    let mut compiler = Compiler::new(
-        &spwn_session.input,
-        spwn_session.interner,
-        &mut spwn_session.bytecode_map,
-    );
-
-    match compiler.compile(&ast) {
-        Ok(_) => {},
-        Err(err) => {
-            println!("{}", err.into_report());
-            std::process::exit(1);
-        },
-    }
     for (k, v) in spwn_session.bytecode_map.iter() {
         v.debug();
     }
 
-    let mut vm = Vm {};
+    // TOOD: fix...
+    // let start_info = RunInfo::from_start(spwn_session);
 
-    let bytecode = &spwn_session.bytecode_map[&spwn_session.input];
-    let start_info = RunInfo {
-        bytecode: &bytecode,
-        function: &bytecode.funcs[0],
-    };
+    // let mut vm = Vm::new(spwn_session);
 
-    vm.run_func(Context::new(), start_info);
+    // vm.run_func(Context::new(), start_info);
+
+    Ok(())
+}
+
+fn main() {
+    let mut spwn_session = Session::new_standard(SpwnSource::File("test.spwn".into()), vec![]);
+
+    // all errors will have been printed by now
+    if run_spwn(&mut spwn_session).is_err() {
+        std::process::exit(1);
+    }
 
     // println!("{:#?}", bytecode_map);
 }

@@ -2,6 +2,7 @@ use std::io::{self, Write};
 
 use ahash::AHashMap;
 use colored::Colorize;
+use line_span::LineSpanExt;
 use lyneate::{Report, Theme, ThemeChars};
 use supports_color::Stream as CStream;
 use supports_unicode::Stream as UStream;
@@ -35,7 +36,7 @@ impl Write for StandardEmitter {
 }
 impl Emitter for StandardEmitter {
     fn emit(&mut self, diagnostic: &Diagnostic) -> io::Result<()> {
-        // `colored`` already follows the NO_COLOR behavior so we dont have to check it here
+        // `colored` already follows the NO_COLOR behavior so we dont have to check it here
         writeln!(
             self,
             "\n{}: {}",
@@ -56,7 +57,7 @@ impl Emitter for StandardEmitter {
 
         let theme_chars = if self.supports_unicode() {
             ThemeChars {
-                side_vertical_dotted: '·',
+                //side_vertical_dotted: '·',
                 ..Default::default()
             }
         } else {
@@ -80,7 +81,7 @@ impl Emitter for StandardEmitter {
                 src.truecolor(123, 184, 255),
                 "]".dimmed(),
             )?;
-            write!(
+            writeln!(
                 self,
                 "{}",
                 Report::new_byte_spanned(
@@ -96,9 +97,19 @@ impl Emitter for StandardEmitter {
                 .with_theme(theme)
                 .display_str()
             )?;
-
-            writeln!(self)?;
         }
+
+        // for suggestion in &diagnostic.suggestions {
+        //     writeln!(self, "Suggestion: {}", suggestion.message)?;
+
+        //     for subsitution in &suggestion.subsitutions {
+        //         let mut messages = vec![];
+
+        //         for part in &subsitution.parts {
+        //             let line = code
+        //         }
+        //     }
+        // }
 
         self.flush()
     }

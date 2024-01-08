@@ -1,9 +1,11 @@
 pub mod diagnostic;
 pub mod emitter;
+pub mod suggestion;
 
 pub use diagnostic::*;
 pub use emitter::*;
 use macro_pub::macro_pub;
+pub use suggestion::*;
 
 // #[rustfmt::skip]
 // #[macro_pub]
@@ -106,9 +108,9 @@ macro_rules! diagnostic {
         $name:ident {
             $(
                 #[message = $msg:literal]
-                // $(
-                //     #[note = $note:expr]
-                // )?
+                $(
+                    #[note = $note:expr]
+                )?
                 #[labels = [
                     $(
                         $area:expr => $fmt:literal $(: $($v:expr),+ )?;
@@ -146,6 +148,7 @@ macro_rules! diagnostic {
                                     $v.to_string()
                                 )+)?), $area),
                             )*],
+                            note: { None $( ; $note.map(|s: String| s.to_string()) )? },
                             message: $msg.into(),
                             suggestions: vec![],
                         },

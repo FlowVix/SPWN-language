@@ -6,7 +6,7 @@ use crate::list_helper;
 use crate::parser::ast::expr::MacroBody;
 
 impl<'a> Parser<'a> {
-    pub fn parse_unit(&mut self) -> ParseResult<ExprNode> {
+    pub(crate) fn parse_unit(&mut self) -> ParseResult<ExprNode> {
         let t = self.next()?;
         let start = self.span();
 
@@ -19,7 +19,7 @@ impl<'a> Parser<'a> {
             Token::BinaryInt => ExprType::Int(i64::from_str_radix(&self.slice()[2..], 2).unwrap()),
             Token::Float => ExprType::Float(self.slice().parse().unwrap()),
             Token::OpenParen => {
-                let old_lexer = self.lexer.clone();
+                let snapshot = self.lexer.clone();
 
                 let after_close = {
                     let mut depth = 1;
@@ -29,18 +29,20 @@ impl<'a> Parser<'a> {
                             Token::ClosedParen => depth -= 1,
 
                             Token::Eof => {
-                                return Err(SyntaxError::UnmatchedToken {
-                                    for_tok: Token::OpenParen,
-                                    not_found: Token::ClosedParen,
-                                    area: self.make_area(start),
-                                })
+                                return Err(self.session.diag_ctx.emit_error(
+                                    SyntaxError::UnmatchedToken {
+                                        for_tok: Token::OpenParen,
+                                        not_found: Token::ClosedParen,
+                                        area: self.make_area(start),
+                                    },
+                                ))
                             },
                             _ => {},
                         }
                     }
                     self.next()?
                 };
-                self.lexer = old_lexer;
+                self.lexer = snapshot;
 
                 let is_macro = matches!(
                     after_close,
@@ -110,11 +112,14 @@ impl<'a> Parser<'a> {
                 ExprType::UnaryOp(unary_op.to_unary_op().unwrap(), val)
             },
             t => {
-                return Err(SyntaxError::UnexpectedToken {
-                    expected: "expression".into(),
-                    found: t,
-                    area: self.make_area(self.span()),
-                })
+                return Err(self
+                    .session
+                    .diag_ctx
+                    .emit_error(SyntaxError::UnexpectedToken {
+                        expected: "expression".into(),
+                        found: t,
+                        area: self.make_area(self.span()),
+                    }))
             },
         };
         Ok(ExprNode {

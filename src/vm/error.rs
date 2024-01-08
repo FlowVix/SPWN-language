@@ -2,14 +2,16 @@ use itertools::Itertools;
 
 use super::value::ValueType;
 use crate::error::error_maker;
+use crate::errors::diagnostic;
 use crate::parser::operators::BinOp;
 use crate::source::CodeArea;
 
-error_maker! {
+diagnostic! {
     #[title = "Runtime Error"]
+    #[level = Error]
     RuntimeError {
 
-        #[msg = "Variable not initialized"]
+        #[message = "Variable not initialized"]
         #[labels = [
             area => "This variable has not been initialized yet";
         ]]
@@ -17,7 +19,7 @@ error_maker! {
             area: CodeArea,
         },
 
-        #[msg = "Invalid operands"]
+        #[message = "Invalid operands"]
         #[labels = [
             area => "Operator `{}` cannot be applied to {} and {}": op.to_str(), v1.0.runtime_display(), v2.0.runtime_display();
             v1.1 => "This is of type {}": v1.0.runtime_display();
@@ -30,7 +32,7 @@ error_maker! {
             area: CodeArea,
         },
 
-        #[msg = "Type mismatch"]
+        #[message = "Type mismatch"]
         #[labels = [
             area => "Expected {}, found {}": {
                 let len = expected.len();

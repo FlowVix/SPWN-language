@@ -4,9 +4,11 @@ use lasso::{Rodeo, Spur};
 use self::builder::proto::{BlockID, ProtoBytecode};
 use self::error::CompilerError;
 use crate::bytecode::opcode::VarID;
+use crate::errors::ErrorGuaranteed;
 use crate::ids_helper;
 use crate::parser::ast::pattern::PatternNode;
 use crate::parser::ast::Ast;
+use crate::session::Session;
 use crate::source::{BytecodeMap, CodeArea, CodeSpan, SpwnSource};
 use crate::util::interner::Interner;
 use crate::util::slabmap::SlabMap;
@@ -19,7 +21,7 @@ pub mod pattern;
 pub mod stmt;
 pub mod util;
 
-pub type CompileResult<T> = Result<T, CompilerError>;
+pub type CompileResult<T> = Result<T, ErrorGuaranteed>;
 
 ids_helper! {
     ScopeID(u16);
@@ -52,10 +54,7 @@ pub struct Scope<'a> {
 
 #[non_exhaustive]
 pub struct Compiler<'a> {
-    src: &'a SpwnSource,
-
-    interner: Interner,
-    bytecode_map: &'a mut BytecodeMap,
+    session: &'a mut Session,
 
     scopes: SlabMap<ScopeID, Scope<'a>>,
     // pub type_def_map: &'a mut TypeDefMap,
@@ -74,29 +73,27 @@ impl<'a> Compiler<'a> {
     pub fn make_area(&'a self, span: CodeSpan) -> CodeArea {
         CodeArea {
             span,
-            src: self.src,
+            src: self.session.input,
         }
     }
 
-    pub fn new(src: &'a SpwnSource, interner: Interner, bytecode_map: &'a mut BytecodeMap) -> Self {
+    pub fn new(session: &'a mut Session) -> Self {
         Self {
-            src,
-            interner,
-            bytecode_map,
+            session,
             scopes: SlabMap::new(),
         }
     }
 
     fn intern(&mut self, s: &str) -> Spur {
-        self.interner.get_or_intern(s)
+        self.session.interner.get_or_intern(s)
     }
 
     pub fn resolve(&self, s: &Spur) -> &str {
-        self.interner.resolve(s)
+        self.session.interner.resolve(s)
     }
 
     pub fn resolve_immut(&self, s: &Spur) -> ImmutStr {
-        self.interner.resolve(s).into()
+        self.session.interner.resolve(s).into()
     }
 
     pub fn get_var(&self, var: Spur, scope: ScopeID) -> Option<VarData> {
@@ -110,16 +107,19 @@ impl<'a> Compiler<'a> {
     }
 
     pub fn get_var_or_err(
-        &self,
+        &mut self,
         var: Spur,
         scope: ScopeID,
         span: CodeSpan,
     ) -> CompileResult<VarData> {
-        self.get_var(var, scope)
-            .ok_or_else(|| CompilerError::NonexistentVariable {
-                area: self.make_area(span),
-                var: self.resolve_immut(&var),
-            })
+        self.get_var(var, scope).ok_or_else(|| {
+            self.session
+                .diag_ctx
+                .emit_error(CompilerError::NonexistentVariable {
+                    area: self.make_area(span),
+                    var: self.resolve_immut(&var),
+                })
+        })
     }
 
     pub fn derive_scope(&mut self, scope: ScopeID, typ: Option<ScopeType<'a>>) -> ScopeID {
@@ -149,9 +149,14 @@ impl<'a> Compiler<'a> {
             vec![],
         )?;
 
-        let code = code.build(self.src);
+        // end compilation if we have errors that were not propogated from other functions
+        if let Some(errors) = self.session.diag_ctx.abort_if_errors() {
+            return Err(errors);
+        }
 
-        self.bytecode_map.insert(self.src, code);
+        let code = code.build(self.session.input);
+
+        self.session.bytecode_map.insert(self.session.input, code);
 
         Ok(())
     }

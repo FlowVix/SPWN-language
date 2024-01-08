@@ -164,15 +164,15 @@ fn ip_cmp_rev(a: &Context, b: &Context) -> Ordering {
     a.ip.cmp(&b.ip).reverse()
 }
 
-pub struct FullContext {
+pub struct FullContext<'a> {
     pub contexts: BinaryHeap<Context, CtxComparator>,
 
-    pub run_info: RunInfo,
+    pub run_info: RunInfo<'a>,
     pub have_returned: bool,
 }
 
-impl FullContext {
-    pub fn new(initial: Context, run_info: RunInfo) -> Self {
+impl<'a> FullContext<'a> {
+    pub fn new(initial: Context, run_info: RunInfo<'a>) -> Self {
         let mut contexts: BinaryHeap<Context, CtxComparator> = BinaryHeap::new_by(ip_cmp_rev);
 
         contexts.push(initial);
