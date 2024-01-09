@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::io::{self, Write};
 
 use ahash::AHashMap;
@@ -7,11 +8,11 @@ use lyneate::{Report, Theme, ThemeChars};
 use supports_color::Stream as CStream;
 use supports_unicode::Stream as UStream;
 
-use super::Diagnostic;
-use crate::error::RainbowColorGenerator;
+use super::{Diagnostic, RainbowColorGenerator};
+use crate::source::SourceMap;
 
 pub trait Emitter: Write {
-    fn emit(&mut self, diagnostic: &Diagnostic) -> io::Result<()>;
+    fn emit(&mut self, diagnostic: &Diagnostic) -> Result<(), Box<dyn Error>>;
 
     fn support_color(&self) -> bool {
         std::env::var("NO_COLOR").map_or(false, |v| !v.is_empty())
@@ -23,19 +24,26 @@ pub trait Emitter: Write {
 }
 
 /// Outputs to stderr
-pub struct StandardEmitter;
+pub struct StandardEmitter {
+    pub(crate) src_map: SourceMap,
+}
+impl StandardEmitter {
+    pub fn new(src_map: SourceMap) -> Self {
+        Self { src_map }
+    }
+}
 
 impl Write for StandardEmitter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        std::io::stderr().write(buf)
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        io::stderr().write(buf)
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
-        std::io::stderr().flush()
+    fn flush(&mut self) -> io::Result<()> {
+        io::stderr().flush()
     }
 }
 impl Emitter for StandardEmitter {
-    fn emit(&mut self, diagnostic: &Diagnostic) -> io::Result<()> {
+    fn emit(&mut self, diagnostic: &Diagnostic) -> Result<(), Box<dyn Error>> {
         // `colored` already follows the NO_COLOR behavior so we dont have to check it here
         writeln!(
             self,
@@ -44,20 +52,29 @@ impl Emitter for StandardEmitter {
             diagnostic.message
         )?;
 
-        // TODO: can this source map come from somewhere else?
         let mut src_map = AHashMap::default();
 
-        for (msg, area) in &diagnostic.labels {
+        for (msg, span) in &diagnostic.labels {
+            let source_file = self
+                .src_map
+                .get_file_by_id(span.source_id)
+                // TODO: remove expects and use errors
+                .expect("BUG: unknown source id in diagnostic label");
+            let source = source_file
+                .src
+                .as_ref()
+                .expect("BUG: no source with source file");
+
             src_map
-                .entry(area.src.name())
-                .or_insert_with(|| (area.src.read().unwrap(), vec![]))
+                .entry(source_file.name.clone())
+                .or_insert_with(|| (source.clone(), vec![]))
                 .1
-                .push((area.span, msg));
+                .push((*span, msg));
         }
 
         let theme_chars = if self.supports_unicode() {
             ThemeChars {
-                //side_vertical_dotted: '·',
+                side_vertical_dotted: '·',
                 ..Default::default()
             }
         } else {
@@ -111,6 +128,7 @@ impl Emitter for StandardEmitter {
         //     }
         // }
 
-        self.flush()
+        self.flush()?;
+        Ok(())
     }
 }

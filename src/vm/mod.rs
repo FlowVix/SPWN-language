@@ -125,7 +125,7 @@ impl<'a> Vm<'a> {
 
                     let k = top
                         .memory
-                        .insert(Value::Empty.into_stored(info.make_area(CodeSpan::ZEROSPAN)));
+                        .insert(Value::Empty.into_stored(CodeSpan::ZEROSPAN));
 
                     out_context(top, Ok(k))
                 } else {
@@ -147,7 +147,7 @@ impl<'a> Vm<'a> {
             let mut run_opcode =
                 |opcode: Opcode, opcode_span: CodeSpan| -> RuntimeResult<LoopFlow> {
                     let run_info = full_ctx.run_info;
-                    let opcode_area = run_info.make_area(opcode_span);
+                    //let opcode_span = run_info.make_area(opcode_span);
 
                     macro_rules! bin_op {
                         ($op:ident, $a:ident, $b:ident, $to:ident) => {{
@@ -159,10 +159,10 @@ impl<'a> Vm<'a> {
                                 &mut ctx.memory,
                                 a,
                                 b,
-                                opcode_area,
+                                opcode_span,
                                 run_info,
                             )?
-                            .into_stored(opcode_area);
+                            .into_stored(opcode_span);
 
                             let k = ctx.memory.insert(v);
 
@@ -181,7 +181,7 @@ impl<'a> Vm<'a> {
                                 Constant::Bool(b) => Value::Bool(*b),
                                 Constant::Empty => Value::Empty,
                             }
-                            .into_stored(opcode_area);
+                            .into_stored(opcode_span);
 
                             let mut ctx = full_ctx.current_mut();
                             let k = ctx.memory.insert(v);
@@ -202,7 +202,7 @@ impl<'a> Vm<'a> {
                                 &mut self.session.diag_ctx,
                                 &ctx.memory,
                                 k,
-                                opcode_area,
+                                opcode_span,
                             )? {
                                 ctx.ip = *to as usize;
                                 return Ok(LoopFlow::Continue);
@@ -215,7 +215,7 @@ impl<'a> Vm<'a> {
                                 &mut self.session.diag_ctx,
                                 &ctx.memory,
                                 k,
-                                opcode_area,
+                                opcode_span,
                             )? {
                                 ctx.ip = *to as usize;
                                 return Ok(LoopFlow::Continue);
@@ -239,7 +239,7 @@ impl<'a> Vm<'a> {
                                 let top = ctx.stack_pop();
                                 v[i] = ctx.deep_clone_key(top);
                             }
-                            let k = ctx.memory.insert(Value::Array(v).into_stored(opcode_area));
+                            let k = ctx.memory.insert(Value::Array(v).into_stored(opcode_span));
                             ctx.stack_push(k);
                         },
                         Opcode::Dbg => {
@@ -284,7 +284,7 @@ impl<'a> Vm<'a> {
                             let mut ctx = full_ctx.current_mut();
                             let Some(k) = ctx.vars_mut()[*id as usize] else {
                                 return Err(self.session.diag_ctx.emit_error(
-                                    RuntimeError::VarNotInitialized { area: opcode_area },
+                                    RuntimeError::VarNotInitialized { span: opcode_span },
                                 ));
                             };
                             ctx.stack_push(k)
@@ -310,7 +310,7 @@ impl<'a> Vm<'a> {
                             let mut ctx = full_ctx.current_mut();
                             let k = ctx
                                 .memory
-                                .insert(Value::Macro { func: id }.into_stored(opcode_area));
+                                .insert(Value::Macro { func: id }.into_stored(opcode_span));
                             ctx.stack_push(k);
                         },
                         Opcode::Call(_) => todo!(),

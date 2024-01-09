@@ -33,7 +33,7 @@ impl<'a> Parser<'a> {
                                     SyntaxError::UnmatchedToken {
                                         for_tok: Token::OpenParen,
                                         not_found: Token::ClosedParen,
-                                        area: self.make_area(start),
+                                        span: start,
                                     },
                                 ))
                             },
@@ -118,7 +118,7 @@ impl<'a> Parser<'a> {
                     .emit_error(SyntaxError::UnexpectedToken {
                         expected: "expression".into(),
                         found: t,
-                        area: self.make_area(self.span()),
+                        span: self.span(),
                     }))
             },
         };

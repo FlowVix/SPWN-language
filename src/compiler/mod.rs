@@ -116,7 +116,7 @@ impl<'a> Compiler<'a> {
             self.session
                 .diag_ctx
                 .emit_error(CompilerError::NonexistentVariable {
-                    area: self.make_area(span),
+                    span,
                     var: self.resolve_immut(&var),
                 })
         })

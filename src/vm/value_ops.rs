@@ -4,22 +4,22 @@ use super::value::{Value, ValueType};
 use super::{RunInfo, RuntimeResult};
 use crate::errors::DiagCtx;
 use crate::parser::operators::BinOp;
-use crate::source::CodeArea;
+use crate::source::CodeSpan;
 
 pub fn to_bool(
     diag_ctx: &mut DiagCtx,
     memory: &Memory,
     v: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     // run_info: RunInfo,
 ) -> RuntimeResult<bool> {
     Ok(match &memory[v].value {
         Value::Bool(v) => *v,
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::TypeMismatch {
-                value: (memory[v].value.get_type(), memory[v].def_area),
+                value: (memory[v].value.get_type(), memory[v].def_span),
                 expected: &[ValueType::Bool],
-                area,
+                span,
             }))
         },
     })
@@ -30,7 +30,7 @@ pub fn plus(
     memory: &mut Memory,
     a: ValueKey,
     b: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     run_info: RunInfo,
 ) -> RuntimeResult<Value> {
     Ok(match (&memory[a].value, &memory[b].value) {
@@ -38,10 +38,10 @@ pub fn plus(
         (Value::Float(a), Value::Float(b)) => Value::Float(a + b),
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::InvalidOperands {
-                v1: (memory[a].value.get_type(), memory[a].def_area),
-                v2: (memory[b].value.get_type(), memory[b].def_area),
+                v1: (memory[a].value.get_type(), memory[a].def_span),
+                v2: (memory[b].value.get_type(), memory[b].def_span),
                 op: BinOp::Plus,
-                area,
+                span,
             }))
         },
     })
@@ -51,7 +51,7 @@ pub fn minus(
     memory: &mut Memory,
     a: ValueKey,
     b: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     run_info: RunInfo,
 ) -> RuntimeResult<Value> {
     Ok(match (&memory[a].value, &memory[b].value) {
@@ -59,10 +59,10 @@ pub fn minus(
         (Value::Float(a), Value::Float(b)) => Value::Float(a - b),
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::InvalidOperands {
-                v1: (memory[a].value.get_type(), memory[a].def_area),
-                v2: (memory[b].value.get_type(), memory[b].def_area),
+                v1: (memory[a].value.get_type(), memory[a].def_span),
+                v2: (memory[b].value.get_type(), memory[b].def_span),
                 op: BinOp::Minus,
-                area,
+                span,
             }))
         },
     })
@@ -72,7 +72,7 @@ pub fn mult(
     memory: &mut Memory,
     a: ValueKey,
     b: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     run_info: RunInfo,
 ) -> RuntimeResult<Value> {
     Ok(match (&memory[a].value, &memory[b].value) {
@@ -80,10 +80,10 @@ pub fn mult(
         (Value::Float(a), Value::Float(b)) => Value::Float(a * b),
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::InvalidOperands {
-                v1: (memory[a].value.get_type(), memory[a].def_area),
-                v2: (memory[b].value.get_type(), memory[b].def_area),
+                v1: (memory[a].value.get_type(), memory[a].def_span),
+                v2: (memory[b].value.get_type(), memory[b].def_span),
                 op: BinOp::Mult,
-                area,
+                span,
             }))
         },
     })
@@ -93,7 +93,7 @@ pub fn div(
     memory: &mut Memory,
     a: ValueKey,
     b: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     run_info: RunInfo,
 ) -> RuntimeResult<Value> {
     Ok(match (&memory[a].value, &memory[b].value) {
@@ -101,10 +101,10 @@ pub fn div(
         (Value::Float(a), Value::Float(b)) => Value::Float(a / b),
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::InvalidOperands {
-                v1: (memory[a].value.get_type(), memory[a].def_area),
-                v2: (memory[b].value.get_type(), memory[b].def_area),
+                v1: (memory[a].value.get_type(), memory[a].def_span),
+                v2: (memory[b].value.get_type(), memory[b].def_span),
                 op: BinOp::Div,
-                area,
+                span,
             }))
         },
     })
@@ -115,7 +115,7 @@ pub fn gt(
     memory: &mut Memory,
     a: ValueKey,
     b: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     run_info: RunInfo,
 ) -> RuntimeResult<Value> {
     Ok(match (&memory[a].value, &memory[b].value) {
@@ -123,10 +123,10 @@ pub fn gt(
         (Value::Float(a), Value::Float(b)) => Value::Bool(a > b),
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::InvalidOperands {
-                v1: (memory[a].value.get_type(), memory[a].def_area),
-                v2: (memory[b].value.get_type(), memory[b].def_area),
+                v1: (memory[a].value.get_type(), memory[a].def_span),
+                v2: (memory[b].value.get_type(), memory[b].def_span),
                 op: BinOp::Gt,
-                area,
+                span,
             }))
         },
     })
@@ -136,7 +136,7 @@ pub fn gte(
     memory: &mut Memory,
     a: ValueKey,
     b: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     run_info: RunInfo,
 ) -> RuntimeResult<Value> {
     Ok(match (&memory[a].value, &memory[b].value) {
@@ -144,10 +144,10 @@ pub fn gte(
         (Value::Float(a), Value::Float(b)) => Value::Bool(a >= b),
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::InvalidOperands {
-                v1: (memory[a].value.get_type(), memory[a].def_area),
-                v2: (memory[b].value.get_type(), memory[b].def_area),
+                v1: (memory[a].value.get_type(), memory[a].def_span),
+                v2: (memory[b].value.get_type(), memory[b].def_span),
                 op: BinOp::GtE,
-                area,
+                span,
             }))
         },
     })
@@ -157,7 +157,7 @@ pub fn lt(
     memory: &mut Memory,
     a: ValueKey,
     b: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     run_info: RunInfo,
 ) -> RuntimeResult<Value> {
     Ok(match (&memory[a].value, &memory[b].value) {
@@ -165,10 +165,10 @@ pub fn lt(
         (Value::Float(a), Value::Float(b)) => Value::Bool(a < b),
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::InvalidOperands {
-                v1: (memory[a].value.get_type(), memory[a].def_area),
-                v2: (memory[b].value.get_type(), memory[b].def_area),
+                v1: (memory[a].value.get_type(), memory[a].def_span),
+                v2: (memory[b].value.get_type(), memory[b].def_span),
                 op: BinOp::Lt,
-                area,
+                span,
             }))
         },
     })
@@ -178,7 +178,7 @@ pub fn lte(
     memory: &mut Memory,
     a: ValueKey,
     b: ValueKey,
-    area: CodeArea,
+    span: CodeSpan,
     run_info: RunInfo,
 ) -> RuntimeResult<Value> {
     Ok(match (&memory[a].value, &memory[b].value) {
@@ -186,10 +186,10 @@ pub fn lte(
         (Value::Float(a), Value::Float(b)) => Value::Bool(a <= b),
         _ => {
             return Err(diag_ctx.emit_error(RuntimeError::InvalidOperands {
-                v1: (memory[a].value.get_type(), memory[a].def_area),
-                v2: (memory[b].value.get_type(), memory[b].def_area),
+                v1: (memory[a].value.get_type(), memory[a].def_span),
+                v2: (memory[b].value.get_type(), memory[b].def_span),
                 op: BinOp::LtE,
-                area,
+                span,
             }))
         },
     })

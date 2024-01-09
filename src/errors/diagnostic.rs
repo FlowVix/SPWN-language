@@ -5,7 +5,7 @@ use ahash::AHashSet;
 use colored::{Color, Style};
 
 use super::{Emitter, StandardEmitter, Substitution, SubstitutionPart, Suggestion};
-use crate::source::{CodeArea, CodeSpan};
+use crate::source::{CodeArea, CodeSpan, SourceMap};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ErrorGuaranteed;
@@ -87,7 +87,7 @@ pub struct Diagnostic {
     pub(crate) level: Level,
     pub title: String,
     pub message: String,
-    pub labels: Vec<(String, CodeArea)>,
+    pub labels: Vec<(String, CodeSpan)>,
     pub suggestions: Vec<Suggestion>,
     pub note: Option<String>,
 }
@@ -133,8 +133,8 @@ pub struct DiagCtx {
 }
 
 impl DiagCtx {
-    pub fn with_standard_emitter() -> Self {
-        Self::with_emitter(StandardEmitter)
+    pub fn with_standard_emitter(src_map: SourceMap) -> Self {
+        Self::with_emitter(StandardEmitter::new(src_map))
     }
 
     pub fn with_emitter(emitter: impl Emitter + 'static) -> Self {

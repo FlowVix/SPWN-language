@@ -156,7 +156,7 @@ impl<'a> Parser<'a> {
             //             return Err(SyntaxError::UnexpectedToken {
             //                 found: tok,
             //                 expected: "unary operator".into(),
-            //                 area: self.make_area(self.span()),
+            //                 span: self.span(),
             //             });
             //         }
             //     } else if let Some(op) = tok.to_bin_op() {
@@ -169,7 +169,7 @@ impl<'a> Parser<'a> {
             //         return Err(SyntaxError::UnexpectedToken {
             //             found: tok,
             //             expected: "binary operator".into(),
-            //             area: self.make_area(self.span()),
+            //             span: self.span(),
             //         });
             //     };
 
@@ -248,7 +248,7 @@ impl<'a> Parser<'a> {
                 .emit_error(SyntaxError::UnexpectedToken {
                     found,
                     expected: "statement separator (`;` or newline)".to_string(),
-                    area: self.make_area(self.span()),
+                    span: self.span(),
                 }));
         }
         self.skip_tok(Token::Semicolon)?;

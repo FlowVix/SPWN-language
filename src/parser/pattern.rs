@@ -53,9 +53,7 @@ impl<'a> Parser<'a> {
                     let span = prev.extended(self.span());
                     self.session
                         .diag_ctx
-                        .create_error(SyntaxError::MutSelf {
-                            area: self.make_area(span),
-                        })
+                        .create_error(SyntaxError::MutSelf { span })
                         .span_suggestion(span, "consider replacing the `mut` with `&`", "&self")
                         .emit();
                 }
@@ -114,7 +112,7 @@ impl<'a> Parser<'a> {
                         .emit_error(SyntaxError::UnexpectedToken {
                             expected: "`self` or identifier".into(),
                             found: t,
-                            area: self.make_area(self.span()),
+                            span: self.span(),
                         }));
                 },
             },
@@ -151,7 +149,7 @@ impl<'a> Parser<'a> {
                     .emit_error(SyntaxError::UnexpectedToken {
                         expected: "pattern".into(),
                         found: t,
-                        area: self.make_area(self.span()),
+                        span: self.span(),
                     }))
             },
         };

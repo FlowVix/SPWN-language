@@ -2,7 +2,7 @@ use delve::{EnumToStr, EnumVariantNames};
 
 use super::memory::{StoredValue, ValueKey};
 use crate::bytecode::opcode::FuncID;
-use crate::source::CodeArea;
+use crate::source::CodeSpan;
 
 macro_rules! value {
     (
@@ -63,10 +63,10 @@ impl ValueType {
 }
 
 impl Value {
-    pub fn into_stored(self, def_area: CodeArea) -> StoredValue {
+    pub fn into_stored(self, def_span: CodeSpan) -> StoredValue {
         StoredValue {
             value: self,
-            def_area,
+            def_span,
         }
     }
 }

@@ -1,7 +1,6 @@
-use crate::error::error_maker;
 use crate::errors::diagnostic;
 use crate::lexer::token::Token;
-use crate::source::CodeArea;
+use crate::source::{CodeArea, CodeSpan};
 
 // error_maker! {
 //     #[title = "Syntax Error"]
@@ -50,39 +49,39 @@ diagnostic! {
     SyntaxError {
         #[message = "Unexpected token"]
         #[labels = [
-            area => "Expected `{}`, found `{}`": expected, found.name();
+            span => "Expected `{}`, found `{}`": expected, found.name();
         ]]
         UnexpectedToken {
             expected: String,
             found: Token,
-            area: CodeArea,
+            span: CodeSpan,
         },
 
         #[message = "Unknown character"]
         #[labels = [
-            area => "Unknown character";
+            span => "Unknown character";
         ]]
         LexingError {
-            area: CodeArea,
+            span: CodeSpan,
         },
 
         #[message = "Found `mut self`"]
-        //#[note = Some("`mut self` is unlikely the behaviour you want as it will clone `self`. Instead, to make `self` mutable, take a mutable reference: `&self`".into())]
+        #[note = Some("`mut self` is unlikely the behaviour you want as it will clone `self`. Instead, to make `self` mutable, take a mutable reference.".into())]
         #[labels = [
-            area => "Found here";
+            span => "Found here";
         ]]
         MutSelf {
-            area: CodeArea,
+            span: CodeSpan,
         },
 
         #[message = "Unmatched token"]
         #[labels = [
-            area => "Couldn't find matching `{}` for this `{}`": not_found.name(), for_tok.name();
+            span => "Couldn't find matching `{}` for this `{}`": not_found.name(), for_tok.name();
         ]]
         UnmatchedToken {
             for_tok: Token,
             not_found: Token,
-            area: CodeArea,
+            span: CodeSpan,
         },
     }
 }

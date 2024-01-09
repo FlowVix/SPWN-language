@@ -132,7 +132,7 @@ impl DeepClone<ValueKey> for Context {
             ),
             v => v.clone(),
         }
-        .into_stored(stored.def_area)
+        .into_stored(stored.def_span)
     }
 }
 impl DeepClone<&StoredValue> for Context {
@@ -154,7 +154,7 @@ impl DeepClone<&StoredValue> for Context {
             ),
             v => v.clone(),
         }
-        .into_stored(input.def_area)
+        .into_stored(input.def_span)
     }
 }
 

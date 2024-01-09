@@ -7,6 +7,8 @@ pub use emitter::*;
 use macro_pub::macro_pub;
 pub use suggestion::*;
 
+use crate::util::hsv_to_rgb;
+
 // #[rustfmt::skip]
 // #[macro_pub]
 // macro_rules! Diagnostic {
@@ -95,6 +97,28 @@ pub use suggestion::*;
 // }
 // }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RainbowColorGenerator {
+    h: f64,
+    s: f64,
+    v: f64,
+    hue_shift: f64,
+}
+
+impl RainbowColorGenerator {
+    pub fn new(h: f64, s: f64, v: f64, hue_shift: f64) -> Self {
+        Self { h, s, v, hue_shift }
+    }
+
+    pub fn next(&mut self) -> (u8, u8, u8) {
+        let h0 = self.h / 360.0;
+
+        self.h = (self.h + self.hue_shift).rem_euclid(360.0);
+
+        hsv_to_rgb(h0, self.s, self.v)
+    }
+}
+
 #[rustfmt::skip]
 #[macro_pub]
 macro_rules! diagnostic {
@@ -135,8 +159,10 @@ macro_rules! diagnostic {
                 },
             )*
         }
-
+        
+        #[allow(clippy::from_over_into)]
         impl Into<$crate::errors::Diagnostic> for $name {
+            #[allow(path_statements)]
             fn into(self) -> $crate::errors::Diagnostic {
                 match self {
                     $(
@@ -148,7 +174,7 @@ macro_rules! diagnostic {
                                     $v.to_string()
                                 )+)?), $area),
                             )*],
-                            note: { None $( ; $note.map(|s: String| s.to_string()) )? },
+                            note: { Option::<String>::None $( ; $note.map(|s: String| s.to_string()) )? },
                             message: $msg.into(),
                             suggestions: vec![],
                         },

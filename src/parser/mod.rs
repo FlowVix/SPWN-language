@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use lasso::{Rodeo, Spur};
 
 use self::ast::Ast;
@@ -6,7 +8,7 @@ use crate::errors::ErrorGuaranteed;
 use crate::lexer::token::Token;
 use crate::lexer::Lexer;
 use crate::session::Session;
-use crate::source::{CodeArea, CodeSpan, SpwnSource};
+use crate::source::{CodeArea, CodeSpan, Source, SpwnSource};
 use crate::util::interner::Interner;
 
 pub mod ast;
@@ -30,18 +32,18 @@ impl<'a> Parser<'a> {
         Self { lexer, session }
     }
 
-    #[inline(always)]
-    pub fn make_area(&self, span: CodeSpan) -> CodeArea {
-        CodeArea {
-            span,
-            src: self.session.input,
-        }
-    }
+    // #[inline(always)]
+    // pub fn make_area(&self, span: CodeSpan) -> CodeArea {
+    //     CodeArea {
+    //         span,
+    //         src: self.session.input,
+    //     }
+    // }
 
-    #[inline(always)]
-    fn src(&self) -> &'static SpwnSource {
-        self.session.input
-    }
+    // #[inline(always)]
+    // fn src(&self) -> &'static SpwnSource {
+    //     self.session.input
+    // }
 
     #[inline(always)]
     fn intern<T: AsRef<str>>(&mut self, string: T) -> Spur {
@@ -58,10 +60,7 @@ impl<'a> Parser<'a> {
         match lexer.next() {
             Some(t) => Ok(t),
             None => Err(self.session.diag_ctx.emit_error(SyntaxError::LexingError {
-                area: CodeArea {
-                    span: self.lexer.span(),
-                    src: self.src(),
-                },
+                span: self.lexer.span(),
             })),
         }
     }
@@ -71,10 +70,7 @@ impl<'a> Parser<'a> {
         match lexer.next_strict() {
             Some(t) => Ok(t),
             None => Err(self.session.diag_ctx.emit_error(SyntaxError::LexingError {
-                area: CodeArea {
-                    span: lexer.span(),
-                    src: self.src(),
-                },
+                span: self.lexer.span(),
             })),
         }
     }
@@ -87,10 +83,7 @@ impl<'a> Parser<'a> {
         }
 
         Err(self.session.diag_ctx.emit_error(SyntaxError::LexingError {
-            area: CodeArea {
-                span: self.lexer.span(),
-                src: self.src(),
-            },
+            span: self.lexer.span(),
         }))
     }
 
@@ -101,10 +94,7 @@ impl<'a> Parser<'a> {
         }
 
         Err(self.session.diag_ctx.emit_error(SyntaxError::LexingError {
-            area: CodeArea {
-                span: self.lexer.span(),
-                src: self.src(),
-            },
+            span: self.lexer.span(),
         }))
     }
 
@@ -173,14 +163,13 @@ impl<'a> Parser<'a> {
     pub(crate) fn expect_tok_named(&mut self, expect: Token, name: &str) -> ParseResult<()> {
         let next = self.next()?;
         if next != expect {
-            let area = self.make_area(self.span());
             return Err(self
                 .session
                 .diag_ctx
                 .emit_error(SyntaxError::UnexpectedToken {
                     found: next,
                     expected: name.to_string(),
-                    area,
+                    span: self.span(),
                 }));
         }
         Ok(())

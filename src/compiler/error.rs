@@ -1,6 +1,5 @@
-use crate::error::error_maker;
 use crate::errors::diagnostic;
-use crate::source::CodeArea;
+use crate::source::CodeSpan;
 use crate::util::ImmutStr;
 
 diagnostic! {
@@ -9,22 +8,22 @@ diagnostic! {
     CompilerError {
         // #[msg = "Invalid operands"]
         // #[labels = [
-        //     area => "Operator `{}` cannot be applied to `{}` and `{}`": op.to_str(), v1.0.runtime_display(), v2.0.runtime_display();
+        //     span => "Operator `{}` cannot be applied to `{}` and `{}`": op.to_str(), v1.0.runtime_display(), v2.0.runtime_display();
         //     v1.1 => "This is of type `{}`": v1.0.runtime_display();
         //     v2.1 => "This is of type `{}`": v2.0.runtime_display();
         // ]]
         // InvalidOperands {
-        //     v1: (ValueType, CodeArea),
-        //     v2: (ValueType, CodeArea),
+        //     v1: (ValueType, CodeSpan),
+        //     v2: (ValueType, CodeSpan),
         //     op: BinOp,
-        //     area: CodeArea,
+        //     span: CodeSpan,
         // },
         #[message = "Nonexistent variable"]
         #[labels = [
-            area => "Variable `{}` does not exist": var;
+            span => "Variable `{}` does not exist": var;
         ]]
         NonexistentVariable {
-            area: CodeArea,
+            span: CodeSpan,
             var: ImmutStr,
         },
     }

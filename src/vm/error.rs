@@ -1,10 +1,9 @@
 use itertools::Itertools;
 
 use super::value::ValueType;
-use crate::error::error_maker;
 use crate::errors::diagnostic;
 use crate::parser::operators::BinOp;
-use crate::source::CodeArea;
+use crate::source::CodeSpan;
 
 diagnostic! {
     #[title = "Runtime Error"]
@@ -13,28 +12,28 @@ diagnostic! {
 
         #[message = "Variable not initialized"]
         #[labels = [
-            area => "This variable has not been initialized yet";
+            span => "This variable has not been initialized yet";
         ]]
         VarNotInitialized {
-            area: CodeArea,
+            span: CodeSpan,
         },
 
         #[message = "Invalid operands"]
         #[labels = [
-            area => "Operator `{}` cannot be applied to {} and {}": op.to_str(), v1.0.runtime_display(), v2.0.runtime_display();
+            span => "Operator `{}` cannot be applied to {} and {}": op.to_str(), v1.0.runtime_display(), v2.0.runtime_display();
             v1.1 => "This is of type {}": v1.0.runtime_display();
             v2.1 => "This is of type {}": v2.0.runtime_display();
         ]]
         InvalidOperands {
-            v1: (ValueType, CodeArea),
-            v2: (ValueType, CodeArea),
+            v1: (ValueType, CodeSpan),
+            v2: (ValueType, CodeSpan),
             op: BinOp,
-            area: CodeArea,
+            span: CodeSpan,
         },
 
         #[message = "Type mismatch"]
         #[labels = [
-            area => "Expected {}, found {}": {
+            span => "Expected {}, found {}": {
                 let len = expected.len();
                 expected.iter().enumerate().map(|(i, t)| {
                     if len > 1 && i == len - 1 {
@@ -47,9 +46,9 @@ diagnostic! {
             value.1 => "Value defined as {} here": value.0.runtime_display();
         ]]
         TypeMismatch {
-            value: (ValueType, CodeArea),
+            value: (ValueType, CodeSpan),
             expected: &'static [ValueType],
-            area: CodeArea,
+            span: CodeSpan,
         },
     }
 }

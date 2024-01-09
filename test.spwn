@@ -1,4 +1,4 @@
 
 
 a = 5;
-a = (mut self) {}
+a = b;
