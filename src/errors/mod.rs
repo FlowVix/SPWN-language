@@ -1,11 +1,9 @@
 pub mod diagnostic;
 pub mod emitter;
-pub mod suggestion;
 
 pub use diagnostic::*;
 pub use emitter::*;
 use macro_pub::macro_pub;
-pub use suggestion::*;
 
 use crate::util::hsv_to_rgb;
 
@@ -134,7 +132,7 @@ macro_rules! diagnostic {
                 #[message = $msg:literal]
                 $(
                     #[note = $note:expr]
-                )?
+                )*
                 #[labels = [
                     $(
                         $area:expr => $fmt:literal $(: $($v:expr),+ )?;
@@ -174,9 +172,10 @@ macro_rules! diagnostic {
                                     $v.to_string()
                                 )+)?), $area),
                             )*],
-                            note: { Option::<String>::None $( ; $note.map(|s: String| s.to_string()) )? },
+                            notes: vec![$(
+                                $note.into(),
+                            )*],
                             message: $msg.into(),
-                            suggestions: vec![],
                         },
                     )*
                 }

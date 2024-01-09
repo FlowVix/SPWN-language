@@ -40,10 +40,6 @@ impl CodeSpan {
             source_id: self.source_id,
         }
     }
-
-    pub fn into_area(self, src: &'static SpwnSource) -> CodeArea {
-        CodeArea { span: self, src }
-    }
 }
 
 // impl From<Range<usize>> for CodeSpan {
@@ -77,18 +73,6 @@ impl SpwnSource {
         match self {
             SpwnSource::File(path) => path.to_str().unwrap().into(),
         }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
-#[display(fmt = "<{} @ {}>", "src.name()", span)]
-pub struct CodeArea {
-    pub span: CodeSpan,
-    pub src: &'static SpwnSource,
-}
-impl Debug for CodeArea {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
     }
 }
 

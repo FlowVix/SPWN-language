@@ -8,7 +8,7 @@ use crate::errors::ErrorGuaranteed;
 use crate::lexer::token::Token;
 use crate::lexer::Lexer;
 use crate::session::Session;
-use crate::source::{CodeArea, CodeSpan, Source, SpwnSource};
+use crate::source::{CodeSpan, Source, SpwnSource};
 use crate::util::interner::Interner;
 
 pub mod ast;

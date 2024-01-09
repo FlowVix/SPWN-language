@@ -10,7 +10,7 @@ use crate::bytecode::opcode::Opcode;
 use crate::bytecode::{Bytecode, Function};
 use crate::errors::ErrorGuaranteed;
 use crate::session::Session;
-use crate::source::{CodeArea, CodeSpan, SpwnSource};
+use crate::source::{CodeSpan, SpwnSource};
 use crate::util::ImmutVec;
 use crate::vm::context::{DeepClone, FullContext};
 
@@ -66,13 +66,13 @@ impl<'a> RunInfo<'a> {
         &self.bytecode.consts
     }
 
-    #[inline]
-    pub fn make_area(&self, span: CodeSpan) -> CodeArea {
-        CodeArea {
-            span,
-            src: self.src(),
-        }
-    }
+    // #[inline]
+    // pub fn make_area(&self, span: CodeSpan) -> CodeArea {
+    //     CodeArea {
+    //         span,
+    //         src: self.src(),
+    //     }
+    // }
 }
 
 #[non_exhaustive]

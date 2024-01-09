@@ -1,6 +1,7 @@
 use super::ast::stmt::{Statements, StmtNode, StmtType};
 use super::error::SyntaxError;
 use super::{ParseResult, Parser};
+use crate::errors::ErrorGuaranteed;
 use crate::lexer::token::Token;
 
 impl<'a> Parser<'a> {
@@ -204,8 +205,13 @@ impl<'a> Parser<'a> {
             _ => {
                 let old_lexer = self.lexer.clone();
 
-                match self.parse_pattern() {
-                    Ok(pat) => {
+                let count = self.session.diag_ctx.error_count();
+
+                let p = self.parse_pattern();
+                let new_count = self.session.diag_ctx.error_count();
+
+                match p {
+                    Ok(pat) if new_count == count => {
                         let tok = self.peek()?;
                         if tok == Token::Assign {
                             self.next()?;
@@ -221,11 +227,12 @@ impl<'a> Parser<'a> {
                             StmtType::Expr(e)
                         }
                     },
-                    Err(pat_err) => {
+                    v => {
+                        println!("{} {}", count, new_count);
                         self.lexer = old_lexer;
                         let e = self.parse_expr()?;
-                        if self.next_is(Token::Assign)? {
-                            return Err(pat_err);
+                        if self.skip_tok(Token::Assign)? {
+                            return Err(ErrorGuaranteed);
                         }
                         StmtType::Expr(e)
                     },

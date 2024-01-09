@@ -4,8 +4,8 @@ use std::ops::{Deref, DerefMut};
 use ahash::AHashSet;
 use colored::{Color, Style};
 
-use super::{Emitter, StandardEmitter, Substitution, SubstitutionPart, Suggestion};
-use crate::source::{CodeArea, CodeSpan, SourceMap};
+use super::{Emitter, StandardEmitter};
+use crate::source::{CodeSpan, SourceMap};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ErrorGuaranteed;
@@ -69,16 +69,6 @@ impl<'a> DiagnosticBuilder<'a> {
     pub fn emit(self) -> ErrorGuaranteed {
         self.diag_ctx.emit_error(self.diagnostic)
     }
-
-    pub fn span_suggestion(
-        mut self,
-        span: CodeSpan,
-        message: impl Into<String>,
-        suggestion: impl Into<String>,
-    ) -> Self {
-        self.diagnostic.span_suggestion(span, message, suggestion);
-        self
-    }
 }
 
 #[non_exhaustive]
@@ -88,8 +78,7 @@ pub struct Diagnostic {
     pub title: String,
     pub message: String,
     pub labels: Vec<(String, CodeSpan)>,
-    pub suggestions: Vec<Suggestion>,
-    pub note: Option<String>,
+    pub notes: Vec<String>,
 }
 
 impl Diagnostic {
@@ -103,33 +92,15 @@ impl Diagnostic {
             title: title.into(),
             message: message.into(),
             labels: vec![],
-            suggestions: vec![],
-            note: None,
+            notes: vec![],
         }
-    }
-
-    pub fn span_suggestion(
-        &mut self,
-        span: CodeSpan,
-        message: impl Into<String>,
-        suggestion: impl Into<String>,
-    ) {
-        self.suggestions.push(Suggestion {
-            subsitutions: vec![Substitution {
-                parts: vec![SubstitutionPart {
-                    span,
-                    snippet: suggestion.into(),
-                }],
-            }],
-            message: message.into(),
-        });
     }
 }
 
 #[non_exhaustive]
 pub struct DiagCtx {
     pub(crate) emitter: Box<dyn Emitter>,
-    error_count: usize,
+    errors: Vec<Diagnostic>,
 }
 
 impl DiagCtx {
@@ -140,7 +111,7 @@ impl DiagCtx {
     pub fn with_emitter(emitter: impl Emitter + 'static) -> Self {
         DiagCtx {
             emitter: Box::new(emitter),
-            error_count: 0,
+            errors: vec![],
         }
     }
 
@@ -152,10 +123,11 @@ impl DiagCtx {
     }
 
     pub fn emit_error(&mut self, error: impl Into<Diagnostic>) -> ErrorGuaranteed {
-        self.error_count += 1;
-        self.emitter
-            .emit(&error.into())
-            .expect("BUG: failed to emit error");
+        println!("gggggggggg");
+        self.errors.push(error.into());
+        // self.emitter
+        //     .emit(&error.into())
+        //     .expect("BUG: failed to emit error");
         ErrorGuaranteed
     }
 
@@ -166,13 +138,20 @@ impl DiagCtx {
     }
 
     #[inline(always)]
+    pub fn error_count(&self) -> usize {
+        self.errors.len()
+    }
+
+    #[inline(always)]
     pub fn has_errors(&self) -> bool {
-        self.error_count > 0
+        self.error_count() > 0
     }
 
     pub fn abort_if_errors(&mut self) -> Option<ErrorGuaranteed> {
-        let e = self.has_errors().then_some(ErrorGuaranteed);
-        self.error_count = 0;
-        e
+        println!("gla");
+        for i in &self.errors {
+            self.emitter.emit(i).expect("BUG: failed to emit warning");
+        }
+        self.has_errors().then_some(ErrorGuaranteed)
     }
 }

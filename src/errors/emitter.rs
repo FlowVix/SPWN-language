@@ -116,18 +116,6 @@ impl Emitter for StandardEmitter {
             )?;
         }
 
-        // for suggestion in &diagnostic.suggestions {
-        //     writeln!(self, "Suggestion: {}", suggestion.message)?;
-
-        //     for subsitution in &suggestion.subsitutions {
-        //         let mut messages = vec![];
-
-        //         for part in &subsitution.parts {
-        //             let line = code
-        //         }
-        //     }
-        // }
-
         self.flush()?;
         Ok(())
     }

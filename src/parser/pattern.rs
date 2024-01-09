@@ -53,14 +53,16 @@ impl<'a> Parser<'a> {
                     let span = prev.extended(self.span());
                     self.session
                         .diag_ctx
-                        .create_error(SyntaxError::MutSelf { span })
-                        .span_suggestion(span, "consider replacing the `mut` with `&`", "&self")
-                        .emit();
-                }
+                        .emit_error(SyntaxError::MutSelf { span });
 
-                self.expect_tok(Token::Ident)?;
-                PatternType::Mut {
-                    name: self.slice_interned(),
+                    PatternType::Mut {
+                        name: self.intern("self"),
+                    }
+                } else {
+                    self.expect_tok(Token::Ident)?;
+                    PatternType::Mut {
+                        name: self.slice_interned(),
+                    }
                 }
             },
             Token::Ident => {

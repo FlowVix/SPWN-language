@@ -3,7 +3,7 @@ use logos::Logos;
 use self::token::Token;
 use crate::parser::error::SyntaxError;
 use crate::parser::ParseResult;
-use crate::source::{CodeArea, CodeSpan, SpwnSource};
+use crate::source::{CodeSpan, SpwnSource};
 
 pub mod token;
 

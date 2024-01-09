@@ -9,7 +9,7 @@ use crate::ids_helper;
 use crate::parser::ast::pattern::PatternNode;
 use crate::parser::ast::Ast;
 use crate::session::Session;
-use crate::source::{BytecodeMap, CodeArea, CodeSpan, SpwnSource};
+use crate::source::{BytecodeMap, CodeSpan, SpwnSource};
 use crate::util::interner::Interner;
 use crate::util::slabmap::SlabMap;
 use crate::util::ImmutStr;
@@ -70,12 +70,12 @@ pub struct Compiler<'a> {
 }
 
 impl<'a> Compiler<'a> {
-    pub fn make_area(&'a self, span: CodeSpan) -> CodeArea {
-        CodeArea {
-            span,
-            src: self.session.input,
-        }
-    }
+    // pub fn make_area(&'a self, span: CodeSpan) -> CodeArea {
+    //     CodeArea {
+    //         span,
+    //         src: self.session.input,
+    //     }
+    // }
 
     pub fn new(session: &'a mut Session) -> Self {
         Self {

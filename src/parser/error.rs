@@ -1,6 +1,6 @@
 use crate::errors::diagnostic;
 use crate::lexer::token::Token;
-use crate::source::{CodeArea, CodeSpan};
+use crate::source::CodeSpan;
 
 // error_maker! {
 //     #[title = "Syntax Error"]
@@ -66,7 +66,7 @@ diagnostic! {
         },
 
         #[message = "Found `mut self`"]
-        #[note = Some("`mut self` is unlikely the behaviour you want as it will clone `self`. Instead, to make `self` mutable, take a mutable reference.".into())]
+        #[note = "`mut self` is unlikely the behaviour you want as it will clone `self`. Instead, to make `self` mutable, take a mutable reference: `&self`"]
         #[labels = [
             span => "Found here";
         ]]
