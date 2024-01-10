@@ -38,6 +38,8 @@ pub enum ExprType {
         params: Vec<ExprNode>,
         // named_params: Vec<(Spanned<Spur>, ExprNode)>,
     },
+
+    Err,
 }
 
 #[derive(Debug)]

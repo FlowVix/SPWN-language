@@ -29,13 +29,14 @@ impl<'a> Parser<'a> {
                             Token::ClosedParen => depth -= 1,
 
                             Token::Eof => {
-                                return Err(self.session.diag_ctx.emit_error(
-                                    SyntaxError::UnmatchedToken {
+                                self.session
+                                    .diag_ctx
+                                    .emit_error(SyntaxError::UnmatchedToken {
                                         for_tok: Token::OpenParen,
                                         not_found: Token::ClosedParen,
                                         span: start,
-                                    },
-                                ))
+                                    });
+                                break;
                             },
                             _ => {},
                         }
@@ -112,14 +113,17 @@ impl<'a> Parser<'a> {
                 ExprType::UnaryOp(unary_op.to_unary_op().unwrap(), val)
             },
             t => {
-                return Err(self
-                    .session
+                self.session
                     .diag_ctx
                     .emit_error(SyntaxError::UnexpectedToken {
                         expected: "expression".into(),
                         found: t,
                         span: self.span(),
-                    }))
+                    });
+                return Ok(ExprNode {
+                    typ: Box::new(ExprType::Err),
+                    span: start.extended(self.span()),
+                });
             },
         };
         Ok(ExprNode {
