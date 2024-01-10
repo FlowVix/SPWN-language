@@ -6,8 +6,8 @@ use crate::list_helper;
 use crate::parser::ast::expr::MacroBody;
 
 impl<'a> Parser<'a> {
-    pub(crate) fn parse_unit(&mut self) -> ParseResult<ExprNode> {
-        let t = self.next()?;
+    pub(crate) fn parse_unit(&'a mut self) -> ParseResult<'a, ExprNode> {
+        let t = self.next();
         let start = self.span();
 
         let unary;
@@ -24,12 +24,12 @@ impl<'a> Parser<'a> {
                 let after_close = {
                     let mut depth = 1;
                     while depth > 0 {
-                        match self.next()? {
+                        match self.next() {
                             Token::OpenParen => depth += 1,
                             Token::ClosedParen => depth -= 1,
 
                             Token::Eof => {
-                                return Err(self.session.diag_ctx.emit_error(
+                                return Err(self.session.diag_ctx.create_error(
                                     SyntaxError::UnmatchedToken {
                                         for_tok: Token::OpenParen,
                                         not_found: Token::ClosedParen,
@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
                             _ => {},
                         }
                     }
-                    self.next()?
+                    self.next()
                 };
                 self.lexer = snapshot;
 
@@ -58,17 +58,17 @@ impl<'a> Parser<'a> {
                     list_helper!(self, ClosedParen {
                         args.push(self.parse_pattern()?);
                     });
-                    let ret_pat = if self.skip_tok(Token::Arrow)? {
+                    let ret_pat = if self.skip_tok(Token::Arrow) {
                         Some(self.parse_pattern()?)
                     } else {
                         None
                     };
-                    let (body, body_span) = if self.skip_tok(Token::FatArrow)? {
+                    let (body, body_span) = if self.skip_tok(Token::FatArrow) {
                         let e = self.parse_expr()?;
                         let span = e.span;
                         (MacroBody::Lambda(e), span)
                     } else {
-                        let start = self.peek_span()?;
+                        let start = self.peek_span();
                         (
                             MacroBody::Normal(self.parse_block()?),
                             start.extended(self.span()),
@@ -115,7 +115,7 @@ impl<'a> Parser<'a> {
                 return Err(self
                     .session
                     .diag_ctx
-                    .emit_error(SyntaxError::UnexpectedToken {
+                    .create_error(SyntaxError::UnexpectedToken {
                         expected: "expression".into(),
                         found: t,
                         span: self.span(),
@@ -128,15 +128,15 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn parse_value(&mut self) -> ParseResult<ExprNode> {
+    pub fn parse_value(&mut self) -> ParseResult<'a, ExprNode> {
         let mut value = self.parse_unit()?;
 
         loop {
             let prev_span = value.span;
 
-            let typ = match self.peek_strict()? {
+            let typ = match self.peek_strict() {
                 Token::OpenParen => {
-                    self.next()?;
+                    self.next();
                     let mut params = vec![];
                     list_helper!(self, ClosedParen {
                         params.push(self.parse_expr()?);
@@ -157,11 +157,11 @@ impl<'a> Parser<'a> {
         Ok(value)
     }
 
-    pub fn parse_expr(&mut self) -> ParseResult<ExprNode> {
+    pub fn parse_expr(&mut self) -> ParseResult<'a, ExprNode> {
         self.parse_op(0)
     }
 
-    pub fn parse_op(&mut self, prec: usize) -> ParseResult<ExprNode> {
+    pub fn parse_op(&mut self, prec: usize) -> ParseResult<'a, ExprNode> {
         let next_prec = operators::next_infix(prec);
 
         let mut left = match next_prec {
@@ -169,8 +169,8 @@ impl<'a> Parser<'a> {
             None => self.parse_value()?,
         };
 
-        while operators::is_infix_prec(self.peek()?, prec) {
-            let op = self.next()?;
+        while operators::is_infix_prec(self.peek(), prec) {
+            let op = self.next();
 
             let right = if operators::prec_type(prec) == operators::OpType::Left {
                 match next_prec {

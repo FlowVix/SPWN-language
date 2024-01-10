@@ -42,14 +42,6 @@ impl CodeSpan {
     }
 }
 
-// impl From<Range<usize>> for CodeSpan {
-//     fn from(value: Range<usize>) -> Self {
-//         Self {
-//             start: value.start,
-//             end: value.end,
-//         }
-//     }
-// }
 impl From<CodeSpan> for Range<usize> {
     fn from(value: CodeSpan) -> Self {
         value.start..value.end
@@ -78,8 +70,6 @@ impl SpwnSource {
 
 pub type BytecodeMap = AHashMap<&'static SpwnSource, Bytecode>;
 
-////////////
-
 pub struct Source {
     pub source: SpwnSource,
     pub id: usize,
@@ -93,17 +83,11 @@ impl Source {
     pub fn read_to_string(&self) -> Option<String> {
         self.source.read()
     }
-
-    // pub fn end_position(&self) -> usize {
-    //     self.start_offset + self.len
-    // }
 }
 
 #[derive(Default)]
 struct SourceMapFiles {
     sources: Vec<Rc<Source>>,
-    //id_map: AHashMap<usize, Rc<Source>>,
-    last_file: Option<usize>,
 }
 
 #[derive(Default)]
@@ -117,27 +101,16 @@ impl SourceMap {
 
         let src = source.read()?;
 
-        // let last_id = if let Some(last) = files.last_file {
-        //     last
-        // } else {
-        //     files.last_file = Some(0);
-        //     0
-        // };
         let current_id = files.sources.len();
-
-        //let end_pos = files.sources[last_id].end_position();
 
         let source = Rc::new(Source {
             name: source.name(),
             source,
             id: current_id,
-            // start_offset: end_pos + 1,
-            // len: src.len(),
             src: Some(src),
         });
 
         files.sources.push(Rc::clone(&source));
-        //files.id_map.insert(current_id, Rc::clone(&source));
 
         Some(source)
     }
@@ -145,19 +118,6 @@ impl SourceMap {
     pub fn get_file_by_id(&self, id: usize) -> Option<Rc<Source>> {
         self.files.borrow().sources.get(id).map(Rc::clone)
     }
-
-    // pub fn find_file_idx_by_span(&self, span: CodeSpan) -> usize {
-    //     self.files
-    //         .borrow()
-    //         .sources
-    //         .partition_point(|x| x.start_offset <= span.end)
-    //         - 1
-    // }
-
-    // pub fn find_file_by_span(&self, span: CodeSpan) -> Rc<Source> {
-    //     let idx = self.find_file_idx_by_span(span);
-    //     (*self.files.borrow().sources)[idx].clone()
-    // }
 }
 
 impl Clone for SourceMap {

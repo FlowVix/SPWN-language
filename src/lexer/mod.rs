@@ -25,23 +25,21 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn next_strict(&mut self) -> Option<Token> {
-        match self.inner.next() {
-            Some(Ok(t)) => {
-                // let span = self.inner.span();
-                // self.current_pos += span.end - span.start;
-                Some(t)
-            },
-            Some(Err(_)) => None,
-            None => Some(Token::Eof),
+    pub fn next_strict(&mut self) -> Token {
+        loop {
+            match self.inner.next() {
+                Some(Ok(t)) => return t,
+                Some(Err(_)) => (),
+                None => return Token::Eof,
+            }
         }
     }
 
-    pub fn next(&mut self) -> Option<Token> {
+    pub fn next(&mut self) -> Token {
         loop {
-            let t = self.next_strict()?;
+            let t = self.next_strict();
             if t != Token::Newline {
-                return Some(t);
+                return t;
             }
         }
     }

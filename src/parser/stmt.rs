@@ -5,7 +5,7 @@ use crate::errors::ErrorGuaranteed;
 use crate::lexer::token::Token;
 
 impl<'a> Parser<'a> {
-    pub fn parse_block(&mut self) -> ParseResult<Statements> {
+    pub fn parse_block(&'a mut self) -> ParseResult<Statements> {
         self.expect_tok(Token::OpenBracket)?;
         let code = self.parse_statements()?;
         self.expect_tok(Token::ClosedBracket)?;
@@ -14,17 +14,17 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_statement(&mut self) -> ParseResult<StmtNode> {
-        let start = self.peek_span()?;
+        let start = self.peek_span();
 
         // let mut attrs = self.parse_outer_attributes()?;
 
-        let is_arrow = self.skip_tok(Token::Arrow)?;
+        let is_arrow = self.skip_tok(Token::Arrow);
 
-        let inner_start = self.peek_span()?;
+        let inner_start = self.peek_span();
 
-        let typ = match self.peek()? {
+        let typ = match self.peek() {
             Token::If => {
-                self.next()?;
+                self.next();
                 let mut branches = vec![];
                 let mut else_branch = None;
 
@@ -32,9 +32,9 @@ impl<'a> Parser<'a> {
                 let code = self.parse_block()?;
                 branches.push((cond, code));
 
-                while self.skip_tok(Token::Else)? {
-                    if self.skip_tok(Token::If)? {
-                        let has_paren = self.skip_tok(Token::OpenParen)?;
+                while self.skip_tok(Token::Else) {
+                    if self.skip_tok(Token::If) {
+                        let has_paren = self.skip_tok(Token::OpenParen);
                         let cond = self.parse_expr()?;
                         if has_paren {
                             self.expect_tok(Token::ClosedParen)?;
@@ -53,14 +53,14 @@ impl<'a> Parser<'a> {
                 }
             },
             Token::While => {
-                self.next()?;
+                self.next();
                 let cond = self.parse_expr()?;
                 let code = self.parse_block()?;
 
                 StmtType::While { cond, code }
             },
             Token::For => {
-                self.next()?;
+                self.next();
                 let iter = self.parse_pattern()?;
                 self.expect_tok(Token::In)?;
                 let iterator = self.parse_expr()?;
@@ -74,12 +74,12 @@ impl<'a> Parser<'a> {
                 }
             },
             Token::Try => {
-                self.next()?;
+                self.next();
                 let try_code = self.parse_block()?;
 
                 self.expect_tok(Token::Catch)?;
 
-                let catch_pat = if !self.next_is(Token::OpenBracket)? {
+                let catch_pat = if !self.skip_tok(Token::OpenBracket) {
                     let v = Some(self.parse_pattern()?);
                     v
                 } else {
@@ -95,9 +95,9 @@ impl<'a> Parser<'a> {
                 }
             },
             Token::Return => {
-                self.next()?;
+                self.next();
                 if matches!(
-                    self.peek_strict()?,
+                    self.peek_strict(),
                     Token::Semicolon | Token::ClosedBracket | Token::Eof | Token::Newline
                 ) {
                     StmtType::Return(None)
@@ -108,31 +108,31 @@ impl<'a> Parser<'a> {
                 }
             },
             Token::Continue => {
-                self.next()?;
+                self.next();
 
                 StmtType::Continue
             },
             Token::Break => {
-                self.next()?;
+                self.next();
 
                 StmtType::Break
             },
             // t @ (Token::Private | Token::Type) => {
             //     let vis = if matches!(t, Token::Private) {
-            //         self.next()?;
+            //         self.next();
             //         Vis::Private
             //     } else {
             //         Vis::Public
             //     };
 
-            //     self.next()?;
+            //     self.next();
             //     self.expect_tok(Token::TypeIndicator)?;
             //     let name = self.slice()[1..].to_string();
 
             //     Statement::TypeDef(vis(self.intern_string(name)))
             // }
             // Token::Impl => {
-            //     self.next()?;
+            //     self.next();
             //     self.expect_tok(Token::TypeIndicator)?;
             //     let name_span = self.span();
             //     let name = self.slice()[1..].to_string();
@@ -145,12 +145,12 @@ impl<'a> Parser<'a> {
             //     }
             // }
             // Token::Overload => {
-            //     self.next()?;
+            //     self.next();
 
-            //     let tok = self.next()?;
+            //     let tok = self.next();
 
             //     let op = if tok == Token::Unary {
-            //         let tok = self.next()?;
+            //         let tok = self.next();
             //         if let Some(op) = tok.to_unary_op() {
             //             Operator::Unary(op)
             //         } else {
@@ -179,7 +179,7 @@ impl<'a> Parser<'a> {
             //     let mut macros = vec![];
 
             //     list_helper!(self, ClosedBracket {
-            //         let vis = if self.skip_tok(Token::Private)? {
+            //         let vis = if self.skip_tok(Token::Private) {
             //             Vis::Private
             //         } else {
             //             Vis::Public
@@ -191,34 +191,64 @@ impl<'a> Parser<'a> {
             //     Statement::Overload { op, macros }
             // }
             Token::Throw => {
-                self.next()?;
+                self.next();
 
                 StmtType::Throw(self.parse_expr()?)
             },
             Token::Unsafe => {
-                self.next()?;
+                self.next();
 
                 let stmts = self.parse_block()?;
 
                 StmtType::Unsafe(stmts)
             },
             _ => {
+                // let old_lexer = self.lexer.clone();
+
+                // let count = self.session.diag_ctx.error_count();
+
+                // let p = self.parse_pattern();
+                // let new_count = self.session.diag_ctx.error_count();
+
+                // match p {
+                //     Ok(pat) if new_count == count => {
+                //         let tok = self.peek();
+                //         if tok == Token::Assign {
+                //             self.next();
+                //             let e = self.parse_expr()?;
+                //             StmtType::Assign(pat, e)
+                //         } else if let Some(op) = tok.to_assign_op() {
+                //             self.next();
+                //             let e = self.parse_expr()?;
+                //             StmtType::AssignOp(pat, op, e)
+                //         } else {
+                //             self.lexer = old_lexer;
+                //             let e = self.parse_expr()?;
+                //             StmtType::Expr(e)
+                //         }
+                //     },
+                //     v => {
+                //         println!("{} {}", count, new_count);
+                //         self.lexer = old_lexer;
+                //         let e = self.parse_expr()?;
+                //         if self.skip_tok(Token::Assign) {
+                //             todo!()
+                //             //return Err(ErrorGuaranteed);
+                //         }
+                //         StmtType::Expr(e)
+                //     },
+                // }
                 let old_lexer = self.lexer.clone();
 
-                let count = self.session.diag_ctx.error_count();
-
-                let p = self.parse_pattern();
-                let new_count = self.session.diag_ctx.error_count();
-
-                match p {
-                    Ok(pat) if new_count == count => {
-                        let tok = self.peek()?;
+                match self.parse_pattern() {
+                    Ok(pat) => {
+                        let tok = self.peek();
                         if tok == Token::Assign {
-                            self.next()?;
+                            self.next();
                             let e = self.parse_expr()?;
                             StmtType::Assign(pat, e)
                         } else if let Some(op) = tok.to_assign_op() {
-                            self.next()?;
+                            self.next();
                             let e = self.parse_expr()?;
                             StmtType::AssignOp(pat, op, e)
                         } else {
@@ -227,12 +257,11 @@ impl<'a> Parser<'a> {
                             StmtType::Expr(e)
                         }
                     },
-                    v => {
-                        println!("{} {}", count, new_count);
+                    Err(pat_err) => {
                         self.lexer = old_lexer;
                         let e = self.parse_expr()?;
-                        if self.skip_tok(Token::Assign)? {
-                            return Err(ErrorGuaranteed);
+                        if self.skip_tok(Token::Assign) {
+                            return Err(pat_err);
                         }
                         StmtType::Expr(e)
                     },
@@ -242,23 +271,23 @@ impl<'a> Parser<'a> {
 
         let inner_span = inner_start.extended(self.span());
 
-        if !matches!(self.peek()?, Token::ClosedBracket)
+        if !matches!(self.peek(), Token::ClosedBracket)
             && !matches!(
-                self.peek_strict()?,
+                self.peek_strict(),
                 Token::Semicolon | Token::Newline | Token::Eof
             )
         {
-            let found = self.next()?;
+            let found = self.next();
             return Err(self
                 .session
                 .diag_ctx
-                .emit_error(SyntaxError::UnexpectedToken {
+                .create_error(SyntaxError::UnexpectedToken {
                     found,
                     expected: "statement separator (`;` or newline)".to_string(),
                     span: self.span(),
                 }));
         }
-        self.skip_tok(Token::Semicolon)?;
+        self.skip_tok(Token::Semicolon);
 
         let typ = if is_arrow {
             StmtType::Arrow(StmtNode {
@@ -278,7 +307,11 @@ impl<'a> Parser<'a> {
     pub fn parse_statements(&mut self) -> ParseResult<Statements> {
         let mut statements = vec![];
 
-        while !matches!(self.peek()?, Token::Eof | Token::ClosedBracket) {
+        while !matches!(self.peek(), Token::Eof | Token::ClosedBracket) {
+            // match self.parse_statement() {
+            //     Err(err) => return Err(err.emit()),
+            //     Ok(stmt) => statements.push(stmt),
+            // }
             let stmt = self.parse_statement()?;
             statements.push(stmt);
         }

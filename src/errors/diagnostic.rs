@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 
@@ -50,24 +51,40 @@ impl From<Level> for Color {
 
 pub struct DiagnosticBuilder<'a> {
     diag_ctx: &'a mut DiagCtx,
-    diagnostic: Diagnostic,
+
+    diagnostic: Option<Box<Diagnostic>>,
 }
 
 impl<'a> Deref for DiagnosticBuilder<'a> {
     type Target = Diagnostic;
 
     fn deref(&self) -> &Self::Target {
-        &self.diagnostic
+        self.diagnostic.as_ref().unwrap()
     }
 }
 impl<'a> DerefMut for DiagnosticBuilder<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.diagnostic
+        self.diagnostic.as_mut().unwrap()
     }
 }
+
+impl<'a> Drop for DiagnosticBuilder<'a> {
+    fn drop(&mut self) {
+        match self.diagnostic.take() {
+            Some(diag) if !std::thread::panicking() => {
+                panic!(
+                    "BUG: error was constructed but not emitted (error message: {})",
+                    diag.message
+                )
+            },
+            _ => (), // OK: the diagnostic was already emitted
+        }
+    }
+}
+
 impl<'a> DiagnosticBuilder<'a> {
-    pub fn emit(self) -> ErrorGuaranteed {
-        self.diag_ctx.emit_error(self.diagnostic)
+    pub fn emit(mut self) -> ErrorGuaranteed {
+        self.diag_ctx.emit_error(*(self.diagnostic.take().unwrap()))
     }
 }
 
@@ -100,7 +117,7 @@ impl Diagnostic {
 #[non_exhaustive]
 pub struct DiagCtx {
     pub(crate) emitter: Box<dyn Emitter>,
-    errors: Vec<Diagnostic>,
+    error_count: usize,
 }
 
 impl DiagCtx {
@@ -109,25 +126,27 @@ impl DiagCtx {
     }
 
     pub fn with_emitter(emitter: impl Emitter + 'static) -> Self {
-        DiagCtx {
+        Self {
             emitter: Box::new(emitter),
-            errors: vec![],
+            error_count: 0,
         }
     }
 
-    pub fn create_error(&mut self, diagnostic: impl Into<Diagnostic>) -> DiagnosticBuilder<'_> {
+    pub fn create_error<'a>(
+        &'a mut self,
+        diagnostic: impl Into<Diagnostic>,
+    ) -> DiagnosticBuilder<'a> {
         DiagnosticBuilder {
             diag_ctx: self,
-            diagnostic: diagnostic.into(),
+            diagnostic: Some(Box::new(diagnostic.into())),
         }
     }
 
     pub fn emit_error(&mut self, error: impl Into<Diagnostic>) -> ErrorGuaranteed {
-        println!("gggggggggg");
-        self.errors.push(error.into());
-        // self.emitter
-        //     .emit(&error.into())
-        //     .expect("BUG: failed to emit error");
+        self.error_count += 1;
+        self.emitter
+            .emit(&error.into())
+            .expect("BUG: failed to emit error");
         ErrorGuaranteed
     }
 
@@ -139,19 +158,15 @@ impl DiagCtx {
 
     #[inline(always)]
     pub fn error_count(&self) -> usize {
-        self.errors.len()
+        self.error_count
     }
 
     #[inline(always)]
     pub fn has_errors(&self) -> bool {
-        self.error_count() > 0
+        self.error_count > 0
     }
 
-    pub fn abort_if_errors(&mut self) -> Option<ErrorGuaranteed> {
-        println!("gla");
-        for i in &self.errors {
-            self.emitter.emit(i).expect("BUG: failed to emit warning");
-        }
+    pub fn abort_if_errors(&self) -> Option<ErrorGuaranteed> {
         self.has_errors().then_some(ErrorGuaranteed)
     }
 }
