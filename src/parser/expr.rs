@@ -6,7 +6,7 @@ use crate::list_helper;
 use crate::parser::ast::expr::MacroBody;
 
 impl<'a> Parser<'a> {
-    pub(crate) fn parse_unit(&mut self) -> ParseResult<ExprNode> {
+    pub(crate) fn parse_unit(&mut self) -> ParseResult<'a, ExprNode> {
         let t = self.next()?;
         let start = self.span();
 
@@ -132,7 +132,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn parse_value(&mut self) -> ParseResult<ExprNode> {
+    pub fn parse_value(&mut self) -> ParseResult<'a, ExprNode> {
         let mut value = self.parse_unit()?;
 
         loop {
@@ -161,11 +161,11 @@ impl<'a> Parser<'a> {
         Ok(value)
     }
 
-    pub fn parse_expr(&mut self) -> ParseResult<ExprNode> {
+    pub fn parse_expr(&mut self) -> ParseResult<'a, ExprNode> {
         self.parse_op(0)
     }
 
-    pub fn parse_op(&mut self, prec: usize) -> ParseResult<ExprNode> {
+    pub fn parse_op(&mut self, prec: usize) -> ParseResult<'a, ExprNode> {
         let next_prec = operators::next_infix(prec);
 
         let mut left = match next_prec {

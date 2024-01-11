@@ -9,7 +9,7 @@ use crate::list_helper;
 use crate::parser::ast::pattern::AssignPath;
 
 impl<'a> Parser<'a> {
-    fn parse_pattern_unit(&mut self) -> ParseResult<PatternNode> {
+    fn parse_pattern_unit(&mut self) -> ParseResult<'a, PatternNode> {
         let t = self.next()?;
         let start = self.span();
 
@@ -53,7 +53,7 @@ impl<'a> Parser<'a> {
                     let span = prev.extended(self.span());
                     self.session
                         .diag_ctx
-                        .emit_error(SyntaxError::MutSelf { span });
+                        .create_error(SyntaxError::MutSelf { span });
 
                     PatternType::Mut {
                         name: self.intern("self"),
@@ -111,7 +111,7 @@ impl<'a> Parser<'a> {
                     return Err(self
                         .session
                         .diag_ctx
-                        .emit_error(SyntaxError::UnexpectedToken {
+                        .create_error(SyntaxError::UnexpectedToken {
                             expected: "`self` or identifier".into(),
                             found: t,
                             span: self.span(),
@@ -148,7 +148,7 @@ impl<'a> Parser<'a> {
                 return Err(self
                     .session
                     .diag_ctx
-                    .emit_error(SyntaxError::UnexpectedToken {
+                    .create_error(SyntaxError::UnexpectedToken {
                         expected: "pattern".into(),
                         found: t,
                         span: self.span(),
@@ -161,7 +161,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_pattern_value(&mut self) -> ParseResult<PatternNode> {
+    fn parse_pattern_value(&mut self) -> ParseResult<'a, PatternNode> {
         let mut pat = self.parse_pattern_unit()?;
 
         loop {
@@ -200,7 +200,7 @@ impl<'a> Parser<'a> {
         Ok(pat)
     }
 
-    fn parse_pattern_op(&mut self, prec: usize) -> ParseResult<PatternNode> {
+    fn parse_pattern_op(&mut self, prec: usize) -> ParseResult<'a, PatternNode> {
         let next_prec = if prec == 2 { None } else { Some(prec + 1) };
 
         let mut left = match next_prec {
@@ -236,7 +236,7 @@ impl<'a> Parser<'a> {
         Ok(left)
     }
 
-    pub fn parse_pattern(&mut self) -> ParseResult<PatternNode> {
+    pub fn parse_pattern(&mut self) -> ParseResult<'a, PatternNode> {
         let mut pat = self.parse_pattern_op(0)?;
 
         loop {

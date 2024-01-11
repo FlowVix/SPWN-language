@@ -5,7 +5,7 @@ use crate::errors::ErrorGuaranteed;
 use crate::lexer::token::Token;
 
 impl<'a> Parser<'a> {
-    pub fn parse_block(&mut self) -> ParseResult<Statements> {
+    pub fn parse_block(&mut self) -> ParseResult<'a, Statements> {
         self.expect_tok(Token::OpenBracket)?;
         let code = self.parse_statements()?;
         self.expect_tok(Token::ClosedBracket)?;
@@ -13,7 +13,7 @@ impl<'a> Parser<'a> {
         Ok(code)
     }
 
-    pub fn parse_statement(&mut self) -> ParseResult<StmtNode> {
+    pub fn parse_statement(&mut self) -> ParseResult<'a, StmtNode> {
         let start = self.peek_span()?;
 
         // let mut attrs = self.parse_outer_attributes()?;
@@ -25,11 +25,13 @@ impl<'a> Parser<'a> {
         let typ = match self.peek()? {
             Token::If => {
                 self.next()?;
+
                 let mut branches = vec![];
                 let mut else_branch = None;
 
                 let cond = self.parse_expr()?;
                 let code = self.parse_block()?;
+
                 branches.push((cond, code));
 
                 while self.skip_tok(Token::Else)? {
@@ -259,10 +261,12 @@ impl<'a> Parser<'a> {
                     },
                     Err(pat_err) => {
                         self.lexer = old_lexer;
+
                         let e = self.parse_expr()?;
                         if self.skip_tok(Token::Assign)? {
                             return Err(pat_err);
                         }
+
                         StmtType::Expr(e)
                     },
                 }
@@ -281,13 +285,14 @@ impl<'a> Parser<'a> {
             return Err(self
                 .session
                 .diag_ctx
-                .emit_error(SyntaxError::UnexpectedToken {
+                .create_error(SyntaxError::UnexpectedToken {
                     found,
                     expected: "statement separator (`;` or newline)".to_string(),
                     span: self.span(),
                 }));
         }
-        self.skip_tok(Token::Semicolon)?;
+
+        let _ = self.skip_tok(Token::Semicolon).map_err(|e| e.emit());
 
         let typ = if is_arrow {
             StmtType::Arrow(StmtNode {
@@ -304,14 +309,10 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn parse_statements(&mut self) -> ParseResult<Statements> {
+    pub fn parse_statements(&mut self) -> ParseResult<'a, Statements> {
         let mut statements = vec![];
 
         while !matches!(self.peek()?, Token::Eof | Token::ClosedBracket) {
-            // match self.parse_statement() {
-            //     Err(err) => return Err(err.emit()),
-            //     Ok(stmt) => statements.push(stmt),
-            // }
             let stmt = self.parse_statement()?;
             statements.push(stmt);
         }

@@ -85,15 +85,16 @@ impl<'a> Compiler<'a> {
     }
 
     fn intern(&mut self, s: &str) -> Spur {
-        self.session.interner.get_or_intern(s)
+        self.session.interner.borrow_mut().get_or_intern(s)
     }
 
     pub fn resolve(&self, s: &Spur) -> &str {
-        self.session.interner.resolve(s)
+        //self.session.interner.borrow().resolve(s)
+        todo!()
     }
 
     pub fn resolve_immut(&self, s: &Spur) -> ImmutStr {
-        self.session.interner.resolve(s).into()
+        self.session.interner.borrow().resolve(s).into()
     }
 
     pub fn get_var(&self, var: Spur, scope: ScopeID) -> Option<VarData> {

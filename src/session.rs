@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use ahash::RandomState;
 use lasso::{Rodeo, Spur};
 
@@ -10,7 +12,7 @@ use crate::util::interner::Interner;
 pub struct Session {
     pub input: &'static SpwnSource,
     pub diag_ctx: DiagCtx,
-    pub interner: Rodeo<Spur, RandomState>,
+    pub interner: RefCell<Rodeo<Spur, RandomState>>,
     pub spwn_version: &'static str,
     pub trailing_args: Vec<String>,
     pub bytecode_map: BytecodeMap,
@@ -38,7 +40,7 @@ impl Session {
         Self {
             input: Box::leak(Box::new(input)),
             diag_ctx,
-            interner: Rodeo::with_hasher(RandomState::new()),
+            interner: RefCell::new(Rodeo::with_hasher(RandomState::new())),
             spwn_version: env!("CARGO_PKG_VERSION"),
             trailing_args,
             bytecode_map: BytecodeMap::new(),
