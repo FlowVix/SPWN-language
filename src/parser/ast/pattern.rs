@@ -17,40 +17,40 @@ pub enum PatternType {
 
     /// @<type>
     Type(Spur),
-    /// <pattern> | <pattern>
+    /// \<pattern> | \<pattern>
     Either(PatternNode, PatternNode),
-    /// <pattern> & <pattern>, <pattern>: <pattern>
+    /// \<pattern> & \<pattern>, \<pattern>: \<pattern>
     Both(PatternNode, PatternNode),
 
-    /// == <expr>
+    /// == \<expr>
     Eq(ExprNode),
     /// != <expr>
     NEq(ExprNode),
-    /// < <expr>
+    /// \< \<expr>
     Lt(ExprNode),
-    /// <= <expr>
+    /// \<= \<expr>
     LtE(ExprNode),
-    /// > <expr>
+    /// \> \<expr>
     Gt(ExprNode),
-    /// >= <expr>
+    /// \>= \<expr>
     GtE(ExprNode),
 
-    /// in <expr>
+    /// in \<expr>
     In(ExprNode),
 
-    /// <pattern>[<pattern>]
+    /// \<pattern>[\<pattern>]
     ArrayPattern(PatternNode, Option<PatternNode>),
-    /// <pattern>{}
+    /// \<pattern>{}
     DictPattern(PatternNode),
 
-    /// [ <pattern> ... ]
+    /// \[ \<pattern> ... ]
     ArrayDestructure(Vec<PatternNode>),
 
-    /// { key(: <pattern>)? ... }
+    /// { key(: \<pattern>)? ... }
     DictDestructure(AHashMap<Spur, (Option<PatternNode>, CodeSpan)>),
-    /// <pattern>? or ?
+    /// \<pattern>? or ?
     MaybeDestructure(Option<PatternNode>),
-    /// @typ::{ <key>(: <pattern>)? ... }
+    /// @typ::{ \<key>(: \<pattern>)? ... }
     InstanceDestructure(Spur, AHashMap<Spur, (Option<PatternNode>, CodeSpan)>),
 
     /// ()
@@ -63,13 +63,15 @@ pub enum PatternType {
     /// &var
     Ref { name: Spur },
 
-    /// <pattern> if <expr>
+    /// \<pattern> if \<expr>
     IfGuard { pat: PatternNode, cond: ExprNode },
     // /// (<pattern>...) -> <pattern>
     // MacroPattern {
     //     args: Vec<PatternNode>,
     //     ret: PatternNode,
     // },
+    /// A malformed pattern or a pattern in an invalid location
+    Err,
 }
 
 #[derive(Debug)]

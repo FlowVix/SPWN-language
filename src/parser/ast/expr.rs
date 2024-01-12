@@ -39,6 +39,7 @@ pub enum ExprType {
         // named_params: Vec<(Spanned<Spur>, ExprNode)>,
     },
 
+    /// A malformed expr
     Err,
 }
 

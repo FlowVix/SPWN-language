@@ -6,8 +6,8 @@ use crate::list_helper;
 use crate::parser::ast::expr::MacroBody;
 
 impl<'a> Parser<'a> {
-    pub(crate) fn parse_unit(&mut self) -> ParseResult<'a, ExprNode> {
-        let t = self.next()?;
+    pub(crate) fn parse_unit(&mut self) -> ExprNode {
+        let t = self.next();
         let start = self.span();
 
         let unary;
@@ -24,7 +24,7 @@ impl<'a> Parser<'a> {
                 let after_close = {
                     let mut depth = 1;
                     while depth > 0 {
-                        match self.next()? {
+                        match self.next() {
                             Token::OpenParen => depth += 1,
                             Token::ClosedParen => depth -= 1,
 
@@ -41,7 +41,7 @@ impl<'a> Parser<'a> {
                             _ => {},
                         }
                     }
-                    self.next()?
+                    self.next()
                 };
                 self.lexer = snapshot;
 
@@ -51,27 +51,34 @@ impl<'a> Parser<'a> {
                 );
 
                 if !is_macro {
-                    let v = self.parse_expr()?;
-                    self.expect_tok(Token::ClosedParen)?;
+                    let v = self.parse_expr();
+                    self.expect_tok_recover(Token::ClosedParen);
                     *v.typ
                 } else {
                     let mut args = vec![];
                     list_helper!(self, ClosedParen {
-                        args.push(self.parse_pattern()?);
+                        args.push(match self.parse_pattern() {
+                            Ok(p) => p,
+                            Err(_) => todo!("add more context?")
+                        });
                     });
-                    let ret_pat = if self.skip_tok(Token::Arrow)? {
-                        Some(self.parse_pattern()?)
+
+                    let ret_pat = if self.skip_tok(Token::Arrow) {
+                        Some(match self.parse_pattern() {
+                            Ok(p) => p,
+                            Err(_) => todo!("add more context?"),
+                        })
                     } else {
                         None
                     };
-                    let (body, body_span) = if self.skip_tok(Token::FatArrow)? {
-                        let e = self.parse_expr()?;
+                    let (body, body_span) = if self.skip_tok(Token::FatArrow) {
+                        let e = self.parse_expr();
                         let span = e.span;
                         (MacroBody::Lambda(e), span)
                     } else {
-                        let start = self.peek_span()?;
+                        let start = self.peek_span();
                         (
-                            MacroBody::Normal(self.parse_block()?),
+                            MacroBody::Normal(self.parse_block()),
                             start.extended(self.span()),
                         )
                     };
@@ -91,11 +98,11 @@ impl<'a> Parser<'a> {
             Token::OpenSqBracket => {
                 let mut v = vec![];
                 list_helper!(self, ClosedSqBracket {
-                    v.push(self.parse_expr()?);
+                    v.push(self.parse_expr());
                 });
                 ExprType::Array(v)
             },
-            Token::Dbg => ExprType::Dbg(self.parse_expr()?),
+            Token::Dbg => ExprType::Dbg(self.parse_expr()),
 
             unary_op
                 if {
@@ -106,8 +113,8 @@ impl<'a> Parser<'a> {
                 let unary_prec = unary.unwrap();
                 let next_prec = operators::next_infix(unary_prec);
                 let val = match next_prec {
-                    Some(next_prec) => self.parse_op(next_prec)?,
-                    None => self.parse_value()?,
+                    Some(next_prec) => self.parse_op(next_prec),
+                    None => self.parse_value(),
                 };
 
                 ExprType::UnaryOp(unary_op.to_unary_op().unwrap(), val)
@@ -120,30 +127,31 @@ impl<'a> Parser<'a> {
                         found: t,
                         span: self.span(),
                     });
-                return Ok(ExprNode {
+
+                return ExprNode {
                     typ: Box::new(ExprType::Err),
                     span: start.extended(self.span()),
-                });
+                };
             },
         };
-        Ok(ExprNode {
+        ExprNode {
             typ: Box::new(typ),
             span: start.extended(self.span()),
-        })
+        }
     }
 
-    pub fn parse_value(&mut self) -> ParseResult<'a, ExprNode> {
-        let mut value = self.parse_unit()?;
+    pub fn parse_value(&mut self) -> ExprNode {
+        let mut value = self.parse_unit();
 
         loop {
             let prev_span = value.span;
 
-            let typ = match self.peek_strict()? {
+            let typ = match self.peek_strict() {
                 Token::OpenParen => {
-                    self.next()?;
+                    self.next();
                     let mut params = vec![];
                     list_helper!(self, ClosedParen {
-                        params.push(self.parse_expr()?);
+                        params.push(self.parse_expr());
                     });
                     ExprType::Call {
                         base: value,
@@ -158,31 +166,31 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(value)
+        value
     }
 
-    pub fn parse_expr(&mut self) -> ParseResult<'a, ExprNode> {
+    pub fn parse_expr(&mut self) -> ExprNode {
         self.parse_op(0)
     }
 
-    pub fn parse_op(&mut self, prec: usize) -> ParseResult<'a, ExprNode> {
+    pub fn parse_op(&mut self, prec: usize) -> ExprNode {
         let next_prec = operators::next_infix(prec);
 
         let mut left = match next_prec {
-            Some(next_prec) => self.parse_op(next_prec)?,
-            None => self.parse_value()?,
+            Some(next_prec) => self.parse_op(next_prec),
+            None => self.parse_value(),
         };
 
-        while operators::is_infix_prec(self.peek()?, prec) {
-            let op = self.next()?;
+        while operators::is_infix_prec(self.peek(), prec) {
+            let op = self.next();
 
             let right = if operators::prec_type(prec) == operators::OpType::Left {
                 match next_prec {
-                    Some(next_prec) => self.parse_op(next_prec)?,
-                    None => self.parse_value()?,
+                    Some(next_prec) => self.parse_op(next_prec),
+                    None => self.parse_value(),
                 }
             } else {
-                self.parse_op(prec)?
+                self.parse_op(prec)
             };
             let new_span = left.span.extended(right.span);
             left = ExprNode {
@@ -191,6 +199,6 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(left)
+        left
     }
 }

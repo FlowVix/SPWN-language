@@ -44,71 +44,51 @@ impl<'a> Parser<'a> {
         self.interner().get_or_intern(string)
     }
 
-    #[inline(always)]
-    fn lexer_next_emit(&mut self, lexer: &mut Lexer) -> ParseResult<'a, Token> {
-        match lexer.next() {
-            Some(t) => Ok(t),
-            None => Err(self
-                .session
-                .diag_ctx
-                .create_error(SyntaxError::LexingError {
-                    span: self.lexer.span(),
-                })),
-        }
-    }
+    // #[inline(always)]
+    // fn lexer_next_emit(&mut self, lexer: &mut Lexer) -> ParseResult<'a, Token> {
+    //     match lexer.next() {
+    //         Some(t) => Ok(t),
+    //         None => Err(self
+    //             .session
+    //             .diag_ctx
+    //             .create_error(SyntaxError::LexingError {
+    //                 span: self.lexer.span(),
+    //             })),
+    //     }
+    // }
+
+    // #[inline(always)]
+    // fn lexer_next_strict_emit(&mut self, lexer: &mut Lexer) -> ParseResult<'a, Token> {
+    //     match lexer.next_strict() {
+    //         Some(t) => Ok(t),
+    //         None => Err(self
+    //             .session
+    //             .diag_ctx
+    //             .create_error(SyntaxError::LexingError {
+    //                 span: self.lexer.span(),
+    //             })),
+    //     }
+    // }
 
     #[inline(always)]
-    fn lexer_next_strict_emit(&mut self, lexer: &mut Lexer) -> ParseResult<'a, Token> {
-        match lexer.next_strict() {
-            Some(t) => Ok(t),
-            None => Err(self
-                .session
-                .diag_ctx
-                .create_error(SyntaxError::LexingError {
-                    span: self.lexer.span(),
-                })),
-        }
-    }
-
-    #[inline(always)]
-    pub(crate) fn next(&mut self) -> ParseResult<'a, Token> {
+    pub(crate) fn next(&mut self) -> Token {
         // self.lexer_next_emit(&mut self.lexer) <-- if only u could do this.....
-        let next = self.lexer.next();
-        dbg!(&next);
-        if let Some(t) = next {
-            return Ok(t);
-        }
-
-        Err(self
-            .session
-            .diag_ctx
-            .create_error(SyntaxError::LexingError {
-                span: self.lexer.span(),
-            }))
+        self.lexer.next()
     }
 
     #[inline(always)]
-    pub(crate) fn next_strict(&mut self) -> ParseResult<'a, Token> {
-        if let Some(t) = self.lexer.next_strict() {
-            return Ok(t);
-        }
-
-        Err(self
-            .session
-            .diag_ctx
-            .create_error(SyntaxError::LexingError {
-                span: self.lexer.span(),
-            }))
+    pub(crate) fn next_strict(&mut self) -> Token {
+        self.lexer.next_strict()
     }
 
-    pub(crate) fn peek(&mut self) -> ParseResult<'a, Token> {
+    pub(crate) fn peek(&mut self) -> Token {
         let mut peek = self.lexer.clone();
-        self.lexer_next_emit(&mut peek)
+        peek.next()
     }
 
-    pub(crate) fn peek_strict(&mut self) -> ParseResult<'a, Token> {
+    pub(crate) fn peek_strict(&mut self) -> Token {
         let mut peek = self.lexer.clone();
-        self.lexer_next_strict_emit(&mut peek)
+        peek.next_strict()
     }
 
     #[inline(always)]
@@ -116,16 +96,16 @@ impl<'a> Parser<'a> {
         self.lexer.span()
     }
 
-    pub(crate) fn peek_span(&mut self) -> ParseResult<'a, CodeSpan> {
+    pub(crate) fn peek_span(&mut self) -> CodeSpan {
         let mut peek = self.lexer.clone();
-        self.lexer_next_emit(&mut peek)?;
-        Ok(peek.span())
+        peek.next();
+        peek.span()
     }
 
-    pub(crate) fn peek_span_strict(&mut self) -> ParseResult<'a, CodeSpan> {
+    pub(crate) fn peek_span_strict(&mut self) -> CodeSpan {
         let mut peek = self.lexer.clone();
-        self.lexer_next_strict_emit(&mut peek)?;
-        Ok(peek.span())
+        peek.next_strict();
+        peek.span()
     }
 
     #[inline(always)]
@@ -139,29 +119,29 @@ impl<'a> Parser<'a> {
     }
 
     #[inline(always)]
-    pub(crate) fn next_is(&mut self, tok: Token) -> ParseResult<'a, bool> {
-        let peek = self.peek()?;
-        Ok(peek == tok)
+    pub(crate) fn next_is(&mut self, tok: Token) -> bool {
+        let peek = self.peek();
+        peek == tok
     }
 
-    pub(crate) fn next_are(&mut self, toks: &[Token]) -> ParseResult<'a, bool> {
+    pub(crate) fn next_are(&mut self, toks: &[Token]) -> bool {
         let mut peek = self.lexer.clone();
 
         for tok in toks {
-            if self.lexer_next_emit(&mut peek)? != *tok {
-                return Ok(false);
+            if peek.next() != *tok {
+                return false;
             }
         }
-        Ok(true)
+        true
     }
 
-    pub(crate) fn skip_tok(&mut self, skip: Token) -> ParseResult<'a, bool> {
-        let next = self.next_is(skip)?;
+    pub(crate) fn skip_tok(&mut self, skip: Token) -> bool {
+        let next = self.next_is(skip);
         if next {
-            self.next()?;
-            Ok(true)
+            self.next();
+            true
         } else {
-            Ok(false)
+            false
         }
     }
 
@@ -179,7 +159,7 @@ impl<'a> Parser<'a> {
     // }
 
     pub(crate) fn expect_tok_named(&mut self, expect: Token, name: &str) -> ParseResult<'a, ()> {
-        let next = self.next()?;
+        let next = self.next();
         if next != expect {
             return Err(self
                 .session
@@ -198,8 +178,20 @@ impl<'a> Parser<'a> {
         self.expect_tok_named(expect, expect.name())
     }
 
+    // bool represents if it recovered or not
+    #[inline(always)]
+    pub(crate) fn expect_tok_recover(&mut self, expect: Token) -> bool {
+        self.expect_tok_named(expect, expect.name()).map_or_else(
+            |e| {
+                e.emit();
+                true
+            },
+            |_| false,
+        )
+    }
+
     pub fn parse(&mut self) -> ParseResult<'a, Ast, ErrorGuaranteed> {
-        let statements = self.parse_statements().map_err(|e| e.emit())?;
+        let statements = self.parse_statements();
 
         // end parsing if we have errors that were not propogated from other functions
         if let Some(errors) = self.session.diag_ctx.abort_if_errors() {

@@ -1,10 +1,11 @@
 use logos::Logos;
 
+// using \w, \d, etc generates A LOT more code than their character range equivalents
 #[derive(Logos, Debug, PartialEq, Clone, Copy)]
 #[logos(skip r#"[ \t\r\f]+|//.*"#)]
 pub enum Token {
     // LITERALS ====================================
-    #[regex(r#"\d+"#)]
+    #[regex(r#"[0-9]+"#)]
     Int,
     #[regex(r#"0x[a-fA-F0-9]+"#)]
     HexInt,
@@ -13,7 +14,7 @@ pub enum Token {
     #[regex(r#"0b[0-1]+"#)]
     BinaryInt,
 
-    #[regex(r#"\d*\.\d+"#)]
+    #[regex(r#"[0-9]*\.[0-9]+"#)]
     Float,
 
     #[token("true")]
@@ -21,21 +22,21 @@ pub enum Token {
     #[token("false")]
     False,
 
-    #[regex(r#"\d+g"#)]
+    #[regex(r#"[0-9]+g"#)]
     GroupID,
-    #[regex(r#"\d+c"#)]
+    #[regex(r#"[0-9]+c"#)]
     ColorID,
-    #[regex(r#"\d+i"#)]
+    #[regex(r#"[0-9]+i"#)]
     ItemID,
-    #[regex(r#"\d+b"#)]
+    #[regex(r#"[0-9]+b"#)]
     BlockID,
-    #[regex(r#"\d+t"#)]
+    #[regex(r#"[0-9]+t"#)]
     TimerID,
-    #[regex(r#"\d+e"#)]
+    #[regex(r#"[0-9]+e"#)]
     EffectID,
-    #[regex(r#"\d+ch"#)]
+    #[regex(r#"[0-9]+ch"#)]
     ChannelID,
-    #[regex(r#"\d+m"#)]
+    #[regex(r#"[0-9]+m"#)]
     MaterialID,
 
     #[regex(r#"\?g"#)]
@@ -56,9 +57,9 @@ pub enum Token {
     ArbitraryMaterialID,
 
     // IDENTS ====================================
-    #[regex(r#"[a-zA-Z_]\w*"#)]
+    #[regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#)]
     Ident,
-    #[regex(r#"@[a-zA-Z_]\w*"#)]
+    #[regex(r#"@[a-zA-Z_][a-zA-Z0-9_]*"#)]
     Type,
     #[token("self")]
     Slf,
@@ -210,6 +211,8 @@ pub enum Token {
     // OTHER ====================================
     #[logos(skip)]
     Eof,
+
+    Unknown,
 }
 
 impl Token {
@@ -303,6 +306,7 @@ impl Token {
             Token::And => "&&",
             Token::In => "in",
             Token::Eof => "end of file",
+            Token::Unknown => "unknown",
         }
     }
 }

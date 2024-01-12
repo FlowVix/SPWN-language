@@ -10,27 +10,27 @@ use crate::parser::ast::pattern::AssignPath;
 
 impl<'a> Parser<'a> {
     fn parse_pattern_unit(&mut self) -> ParseResult<'a, PatternNode> {
-        let t = self.next()?;
+        let t = self.next();
         let start = self.span();
 
         macro_rules! dictlike_destructure {
-            ($map:ident) => {
-                let mut $map = AHashMap::new();
-                list_helper!(self, ClosedBracket {
-                    self.expect_tok(Token::Ident)?;
+                ($map:ident) => {
+                    let mut $map = AHashMap::new();
+                    list_helper!(self, ClosedBracket {
+                        self.expect_tok_recover(Token::Ident);
 
-                    let k = self.slice_interned();
-                    let start = self.span();
+                        let k = self.slice_interned();
+                        let start = self.span();
 
-                    let p = if self.skip_tok(Token::Colon)? {
-                        Some(self.parse_pattern()?)
-                    } else {
-                        None
-                    };
-                    $map.insert(k, (p, start.extended(self.span())))
-                });
-            };
-        }
+                        let p = if self.skip_tok(Token::Colon) {
+                            Some(self.parse_pattern()?)
+                        } else {
+                            None
+                        };
+                        $map.insert(k, (p, start.extended(self.span())))
+                    });
+                };
+            }
 
         let typ = match t {
             Token::Any => PatternType::Any,
@@ -38,7 +38,7 @@ impl<'a> Parser<'a> {
             #[allow(clippy::unnecessary_to_owned)]
             Token::Type => {
                 let t = self.intern(self.slice()[1..].to_string());
-                if self.skip_tok(Token::DoubleColon)? {
+                if self.skip_tok(Token::DoubleColon) {
                     dictlike_destructure!(map);
                     PatternType::InstanceDestructure(t, map)
                 } else {
@@ -49,17 +49,16 @@ impl<'a> Parser<'a> {
             Token::Mut => {
                 let prev = self.span();
 
-                if self.skip_tok(Token::Slf)? {
+                if self.skip_tok(Token::Slf) {
                     let span = prev.extended(self.span());
+
                     self.session
                         .diag_ctx
-                        .create_error(SyntaxError::MutSelf { span });
+                        .emit_error(SyntaxError::MutSelf { span });
 
-                    PatternType::Mut {
-                        name: self.intern("self"),
-                    }
+                    PatternType::Err
                 } else {
-                    self.expect_tok(Token::Ident)?;
+                    self.expect_tok_recover(Token::Ident);
                     PatternType::Mut {
                         name: self.slice_interned(),
                     }
@@ -71,24 +70,24 @@ impl<'a> Parser<'a> {
                 let mut path = vec![];
 
                 loop {
-                    match self.peek_strict()? {
+                    match self.peek_strict() {
                         Token::OpenSqBracket => {
-                            self.next()?;
-                            let index = self.parse_expr()?;
-                            self.expect_tok(Token::ClosedSqBracket)?;
+                            self.next();
+                            let index = self.parse_expr();
+                            self.expect_tok_recover(Token::ClosedSqBracket);
 
                             path.push(AssignPath::Index(index));
                         },
-                        _ => match self.peek()? {
+                        _ => match self.peek() {
                             Token::Dot => {
-                                self.next()?;
-                                self.expect_tok(Token::Ident)?;
+                                self.next();
+                                self.expect_tok_recover(Token::Ident);
                                 let member = self.slice_interned();
                                 path.push(AssignPath::Member(member));
                             },
                             Token::DoubleColon => {
-                                self.next()?;
-                                self.expect_tok(Token::Ident)?;
+                                self.next();
+                                self.expect_tok_recover(Token::Ident);
                                 let member = self.slice_interned();
                                 path.push(AssignPath::Associated(member));
                             },
@@ -99,9 +98,9 @@ impl<'a> Parser<'a> {
 
                 PatternType::Path { var, path }
             },
-            Token::Ampersand => match self.peek()? {
+            Token::Ampersand => match self.peek() {
                 Token::Slf | Token::Ident => {
-                    self.next()?;
+                    self.next();
 
                     PatternType::Ref {
                         name: self.slice_interned(),
@@ -119,13 +118,13 @@ impl<'a> Parser<'a> {
                 },
             },
 
-            Token::Eq => PatternType::Eq(self.parse_expr()?),
-            Token::Gt => PatternType::Gt(self.parse_expr()?),
-            Token::GtE => PatternType::GtE(self.parse_expr()?),
-            Token::Lt => PatternType::Lt(self.parse_expr()?),
-            Token::LtE => PatternType::LtE(self.parse_expr()?),
-            Token::NEq => PatternType::NEq(self.parse_expr()?),
-            Token::In => PatternType::In(self.parse_expr()?),
+            Token::Eq => PatternType::Eq(self.parse_expr()),
+            Token::Gt => PatternType::Gt(self.parse_expr()),
+            Token::GtE => PatternType::GtE(self.parse_expr()),
+            Token::Lt => PatternType::Lt(self.parse_expr()),
+            Token::LtE => PatternType::LtE(self.parse_expr()),
+            Token::NEq => PatternType::NEq(self.parse_expr()),
+            Token::In => PatternType::In(self.parse_expr()),
 
             Token::OpenSqBracket => {
                 let mut v = vec![];
@@ -140,7 +139,7 @@ impl<'a> Parser<'a> {
             },
             Token::OpenParen => {
                 let v = self.parse_pattern()?;
-                self.expect_tok(Token::ClosedParen)?;
+                self.expect_tok_recover(Token::ClosedParen);
                 *v.typ
             },
 
@@ -152,7 +151,7 @@ impl<'a> Parser<'a> {
                         expected: "pattern".into(),
                         found: t,
                         span: self.span(),
-                    }))
+                    }));
             },
         };
         Ok(PatternNode {
@@ -167,25 +166,27 @@ impl<'a> Parser<'a> {
         loop {
             let prev_span = pat.span;
 
-            let typ = match self.peek_strict()? {
+            let typ = match self.peek_strict() {
                 Token::OpenSqBracket => {
-                    self.next()?;
-                    if self.skip_tok(Token::ClosedSqBracket)? {
+                    self.next();
+                    if self.skip_tok(Token::ClosedSqBracket) {
                         PatternType::ArrayPattern(pat, None)
                     } else {
                         let inner = self.parse_pattern()?;
-                        self.expect_tok(Token::ClosedSqBracket)?;
+
+                        self.expect_tok_recover(Token::ClosedSqBracket);
+
                         PatternType::ArrayPattern(pat, Some(inner))
                     }
                 },
                 Token::OpenBracket => {
-                    self.next()?;
-                    self.expect_tok(Token::ClosedBracket)?;
+                    self.next();
+                    self.expect_tok_recover(Token::ClosedBracket);
 
                     PatternType::DictPattern(pat)
                 },
                 Token::QMark => {
-                    self.next()?;
+                    self.next();
 
                     PatternType::MaybeDestructure(Some(pat))
                 },
@@ -209,10 +210,10 @@ impl<'a> Parser<'a> {
         };
 
         while matches!(
-            (self.peek()?, prec),
+            (self.peek(), prec),
             (Token::Colon, 0) | (Token::Pipe, 1) | (Token::Ampersand, 2)
         ) {
-            let peek = self.next()?;
+            let peek = self.next();
             let right = match next_prec {
                 Some(next_prec) => self.parse_pattern_op(next_prec)?,
                 None => self.parse_pattern_value()?,
@@ -241,10 +242,10 @@ impl<'a> Parser<'a> {
 
         loop {
             let start_span = pat.span;
-            let typ = match self.peek_strict()? {
+            let typ = match self.peek_strict() {
                 Token::If => {
-                    self.next()?;
-                    let cond = self.parse_expr()?;
+                    self.next();
+                    let cond = self.parse_expr();
                     PatternType::IfGuard { pat, cond }
                 },
                 _ => {

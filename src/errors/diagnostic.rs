@@ -130,7 +130,7 @@ impl DiagCtx {
         }
     }
 
-    pub fn create_error<'a>(&'a self, diagnostic: impl Into<Diagnostic>) -> DiagnosticBuilder<'a> {
+    pub fn create_error(&self, diagnostic: impl Into<Diagnostic>) -> DiagnosticBuilder<'_> {
         DiagnosticBuilder {
             diag_ctx: self,
             diagnostic: Box::new(diagnostic.into()),

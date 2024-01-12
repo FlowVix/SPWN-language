@@ -143,7 +143,7 @@ impl<'a> Compiler<'a> {
                     expr.span,
                 );
             },
-            ExprType::Err => unreachable!(),
+            ExprType::Err => unreachable!("BUG: `Err` expression type in compiler"),
         };
         Ok(())
     }

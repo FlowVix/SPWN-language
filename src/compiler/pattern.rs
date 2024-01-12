@@ -59,6 +59,7 @@ impl<'a> Compiler<'a> {
             PatternType::Ref { name } => todo!(),
             PatternType::IfGuard { pat, cond } => todo!(),
             // PatternType::MacroPattern { args, ret } => todo!(),
+            PatternType::Err => unreachable!("BUG: `Err` pattern type in compiler"),
         }
         Ok(())
     }
